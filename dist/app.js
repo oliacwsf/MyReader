@@ -353,6 +353,12 @@ async function loadPage(n, opts = {}) {
   const frame = $('#page-frame');
   const doc = frame.contentDocument;
   S.pageReady = false;                 // 新页面就绪前禁止 dump，避免把空标注写回去
+  // doc.open() 会移除 document 上的事件监听器，但 document/window 对象本身复用，
+  // 上面的 ReaderAnnot / __mrAnnotReady 标记会残留。若不先清掉，新注入的 annot.js
+  // 会误判「已初始化」提前 return，本页就没有点击/滚动监听器了 —— 大型 EPUB 拆分出的
+  // 「上一页/下一页」链接从此点不动。这里显式清理，强制每页都重新绑定。
+  try { delete frame.contentWindow.ReaderAnnot; } catch (e) { /* 忽略 */ }
+  try { delete doc.__mrAnnotReady; } catch (e) { /* 忽略 */ }
   doc.open();
   doc.write(html.replace('</body>', `<script>${S.annotJs}<\/script></body>`));
   doc.close();
@@ -656,8 +662,9 @@ function renderTocSidebar() {
   renderBookmarks();
 }
 function toggleTocPane() {
-  $('#toc-pane').classList.toggle('hidden');
-  $('#toc-divider').classList.toggle('hidden', $('#toc-pane').classList.contains('hidden'));
+  const hidden = $('#toc-pane').classList.toggle('hidden');
+  $('#toc-divider').classList.toggle('hidden', hidden);
+  $('#toc-reopen').classList.toggle('hidden', !hidden);
 }
 
 // ---- 可拖动分隔条：笔记栏 / 目录栏 / 目录·书签两栏宽度自由调整并记忆 ----
@@ -1762,7 +1769,6 @@ function bindEvents() {
   $('#btn-back').onclick = back;
   $('#btn-prev').onclick = () => S.kind === 'pdf' ? pdfStep(-1) : pageStep(-1);
   $('#btn-next').onclick = () => S.kind === 'pdf' ? pdfStep(1) : pageStep(1);
-  $('#btn-add-bm').onclick = addBookmark;
   $$('#tool-group button').forEach((b) => b.onclick = () => setTool(b.dataset.tool));
   $('#width-sel').onchange = (e) => { S.width = parseInt(e.target.value, 10); applyToolToFrame(); };
   $('#btn-undo').onclick = undoAnnotation;
@@ -1790,6 +1796,9 @@ function bindEvents() {
   };
   $('#btn-fullscreen').onclick = () => invoke('toggle_fullscreen').catch(() => {});
 
+  $('#toc-toggle').onclick = toggleTocPane;
+  $('#toc-reopen').onclick = toggleTocPane;
+  $('#bm-add').onclick = addBookmark;
   $('#bm-del').onclick = async () => {
     if (bmSelected < 0) return;
     S.bookmarks.splice(bmSelected, 1); bmSelected = -1;

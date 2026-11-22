@@ -1,7 +1,12 @@
 /* 阅读页面内的标注引擎（与 Python 版 ANNOT_JS 同源）。
    通过 postMessage 与主界面通信，页号随页面注入，保证跨页标注不错页。*/
 (function () {
-  if (window.ReaderAnnot) return;
+  // 注意：翻页用 doc.open()/write() 重写 iframe，contentWindow 不变、window.ReaderAnnot
+  // 会残留。若仍用 window.ReaderAnnot 作守卫，第二页起整个脚本会提前 return，
+  // 点击/滚动监听器全部丢失 —— 大型 EPUB 拆分出的「上一页/下一页」链接从此点不动。
+  // 改为 document 级守卫：每次 doc.open() 都会换新 document，标记自然清零，保证每页都重新绑定。
+  if (document.__mrAnnotReady) return;
+  document.__mrAnnotReady = true;
   var NS = 'http://www.w3.org/2000/svg';
   var st = { tool: 'select', color: '#E53935', width: 2, anns: [], drag: null, seq: 0, preview: null };
   var PAGE = 0;

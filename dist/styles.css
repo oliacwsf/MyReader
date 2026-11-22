@@ -70,14 +70,12 @@ td.col-note.no { color: #b9bec7; }
 
 /* ---- 左侧目录/书签栏 + 可拖动分隔条 ---- */
 .toc-pane { width: 320px; min-width: 220px; max-width: 56%; flex: 0 0 auto; display: flex;
-  flex-direction: column; background: #f5f6f8; border-right: 1px solid #d0d3d8; overflow: hidden; }
-.toc-head { padding: 6px 8px; font-weight: 600; color: #33445c; background: #e9eaed;
-  border-bottom: 1px solid #d0d3d8; user-select: none; }
+  flex-direction: column; position: relative; background: #f5f6f8; border-right: 1px solid #d0d3d8; overflow: hidden; }
 .toc-body { flex: 1; display: flex; min-height: 0; }
 .toc-col { display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
 .toc-col-head { display: flex; align-items: center; gap: 6px; padding: 4px 8px; font-weight: 600;
   color: #33445c; background: #eceef1; border-bottom: 1px solid #d0d3d8; user-select: none; }
-.toc-col-head button { padding: 1px 6px; height: 20px; font-size: 12px; }
+.toc-col-head button { padding: 0; height: 20px; min-width: 20px; font-size: 14px; line-height: 1; }
 .toc-col > .tree, .toc-col > .list { flex: 1; overflow: auto; padding: 6px 8px; }
 #toc-col-tree { flex: 0 0 auto; width: 52%; }   /* 目录列默认占一半，可拖动分隔条调节 */
 .toc-col-bm { flex: 1 1 0; }                     /* 书签列占据剩余宽度 */
@@ -85,6 +83,16 @@ td.col-note.no { color: #b9bec7; }
 .divider-v:hover, .divider-v.active { background: #1E88E5; }
 .divider { flex: 0 0 5px; width: 5px; cursor: col-resize; background: #d8dadd; }
 .divider:hover, .divider.active { background: #1E88E5; }
+/* 侧栏收起/展开小按钮 */
+.toc-toggle { position: absolute; top: 5px; right: 6px; z-index: 6; width: 22px; height: 22px;
+  padding: 0; border: 1px solid #c8cbd1; border-radius: 3px; background: #fff; color: #556;
+  font-size: 12px; line-height: 1; cursor: pointer; }
+.toc-toggle:hover { background: #eef5fd; border-color: #1E88E5; color: #1E88E5; }
+.toc-reopen { position: absolute; left: 0; top: 50%; transform: translateY(-50%); z-index: 6;
+  width: 16px; height: 64px; padding: 0; border: 1px solid #c8cbd1; border-left: 0;
+  border-radius: 0 4px 4px 0; background: #fff; color: #556; font-size: 12px; cursor: pointer;
+  box-shadow: 1px 0 4px rgba(0,0,0,.12); }
+.toc-reopen:hover { background: #eef5fd; color: #1E88E5; }
 body.col-resizing { cursor: col-resize !important; user-select: none !important; }
 body.col-resizing iframe { pointer-events: none; }
 
