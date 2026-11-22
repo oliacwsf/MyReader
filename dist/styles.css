@@ -1,0 +1,156 @@
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
+  font-size: 13px; color: #222; background: #f0f1f3; }
+button, input, select, textarea { font-family: inherit; font-size: 13px; }
+button { padding: 3px 9px; height: 24px; border: 1px solid #b8bcc4; border-radius: 3px;
+  background: #fdfdfd; cursor: pointer; white-space: nowrap; }
+button:hover { background: #e8f1fc; border-color: #1E88E5; }
+button:active { background: #d5e7fa; }
+button:disabled { opacity: .5; cursor: default; }
+button.active { background: #1E88E5; color: #fff; border-color: #1565C0; }
+input, select, textarea { border: 1px solid #b8bcc4; border-radius: 3px; padding: 2px 5px; background: #fff; }
+label { color: #444; white-space: nowrap; }
+.hidden { display: none !important; }
+.flex { flex: 1; }
+
+.view { display: none; height: 100%; flex-direction: column; }
+.view.active { display: flex; }
+
+/* ---- 文件列表 ---- */
+.topbar { display: flex; align-items: center; gap: 4px; padding: 4px 6px; background: #e9eaed;
+  border-bottom: 1px solid #c8cbd1; flex-wrap: wrap; }
+.dir-label { flex: 1; min-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: #555; padding: 0 6px; }
+#search { width: 180px; }
+#filter { width: 130px; }
+.table-wrap { flex: 1; overflow: auto; background: #fff; }
+#file-table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+#file-table thead th { position: sticky; top: 0; z-index: 2; background: #e4e6ea;
+  border-bottom: 1px solid #b9bdc5; border-right: 1px solid #d6d9df;
+  padding: 5px 8px; text-align: left; cursor: pointer; user-select: none;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#file-table thead th:last-child { border-right: 0; }
+#file-table tbody td { border-bottom: 1px solid #dcdfe5; border-right: 1px solid #f1f3f6;
+  padding: 4px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#file-table tbody td:last-child { border-right: 0; }
+#file-table tbody tr:hover { background: #eef5fd; }
+#file-table tbody tr.selected { background: #cfe4fa; }
+.col-resizer { position: absolute; top: 0; right: -3px; width: 7px; height: 100%;
+  cursor: col-resize; z-index: 3; }
+#file-table thead th:hover .col-resizer { background: rgba(30, 136, 229, .28); }
+.col-resizer:hover { background: rgba(30, 136, 229, .55) !important; }
+body.col-resizing, body.col-resizing * { cursor: col-resize !important; user-select: none !important; }
+td.col-note { text-align: center; font-size: 15px; line-height: 1.15; }
+td.col-note.yes { color: #0a7d32; font-weight: 700; }
+td.col-note.no { color: #b9bec7; }
+
+/* ---- 阅读区 ---- */
+.toolbar, .fmtbar { display: flex; align-items: center; gap: 3px; padding: 3px 5px;
+  background: #e9eaed; border-bottom: 1px solid #c8cbd1; flex-wrap: wrap; }
+.toolbar button.narrow { width: 28px; padding: 0; }
+.sep { width: 8px; }
+.tool-group { display: inline-flex; gap: 2px; }
+.color-group { display: inline-flex; gap: 2px; }
+.color-group button { width: 18px; height: 18px; padding: 0; border: 1px solid #888; border-radius: 2px; }
+.color-group button.active { border: 2px solid #000; outline: 1px solid #fff; }
+#width-sel { width: 44px; }
+.progress { color: #1E88E5; font-weight: bold; margin: 0 8px; }
+.zoom { width: 44px; text-align: center; }
+#line-in { width: 58px; }
+
+.split { flex: 1; display: flex; min-height: 0; }
+.left-pane { flex: 1; min-width: 0; position: relative; background: #e6e7ea; display: flex; }
+.reader-zone { flex: 1; min-width: 0; position: relative; display: flex; }
+.right-pane { width: 30%; min-width: 220px; max-width: 75%; display: flex; flex-direction: column;
+  border-left: 1px solid #c8cbd1; background: #fff; }
+.page-frame { width: 100%; height: 100%; border: 0; background: #e6e7ea; }
+.note-tools { display: flex; gap: 4px; padding: 4px; background: #e9eaed; border-bottom: 1px solid #d0d3d8; }
+#note-edit { flex: 1; border: 0; border-radius: 0; padding: 8px; resize: none; outline: none;
+  font-family: Consolas, monospace; font-size: 13px; line-height: 1.6; }
+
+/* ---- 左侧目录/书签栏 + 可拖动分隔条 ---- */
+.toc-pane { width: 320px; min-width: 220px; max-width: 56%; flex: 0 0 auto; display: flex;
+  flex-direction: column; background: #f5f6f8; border-right: 1px solid #d0d3d8; overflow: hidden; }
+.toc-head { padding: 6px 8px; font-weight: 600; color: #33445c; background: #e9eaed;
+  border-bottom: 1px solid #d0d3d8; user-select: none; }
+.toc-body { flex: 1; display: flex; min-height: 0; }
+.toc-col { display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+.toc-col-head { display: flex; align-items: center; gap: 6px; padding: 4px 8px; font-weight: 600;
+  color: #33445c; background: #eceef1; border-bottom: 1px solid #d0d3d8; user-select: none; }
+.toc-col-head button { padding: 1px 6px; height: 20px; font-size: 12px; }
+.toc-col > .tree, .toc-col > .list { flex: 1; overflow: auto; padding: 6px 8px; }
+#toc-col-tree { flex: 0 0 auto; width: 52%; }   /* 目录列默认占一半，可拖动分隔条调节 */
+.toc-col-bm { flex: 1 1 0; }                     /* 书签列占据剩余宽度 */
+.divider-v { flex: 0 0 5px; width: 5px; cursor: col-resize; background: #d8dadd; }
+.divider-v:hover, .divider-v.active { background: #1E88E5; }
+.divider { flex: 0 0 5px; width: 5px; cursor: col-resize; background: #d8dadd; }
+.divider:hover, .divider.active { background: #1E88E5; }
+body.col-resizing { cursor: col-resize !important; user-select: none !important; }
+body.col-resizing iframe { pointer-events: none; }
+
+/* ---- PDF ---- */
+.pdf-area { position: absolute; inset: 0; overflow: auto; background: #7f8792; }
+.pdf-bar { position: sticky; top: 0; z-index: 5; display: flex; gap: 8px; align-items: center;
+  justify-content: center; padding: 5px; background: #e9eaed; border-bottom: 1px solid #c8cbd1;
+  box-shadow: 0 1px 4px rgba(0,0,0,.15); }
+.pdf-sep { width: 10px; }
+#pdf-jump { width: 64px; }
+#pdf-page-info { min-width: 74px; text-align: center; font-weight: 600; color: #33445c; }
+/* 对应 Python 版 QGraphicsScene：每页按预计算的 y 绝对定位。
+   视口相交用纯数学计算（不遍历 DOM 读 getBoundingClientRect），
+   大 PDF 滚动时才不会因上千页强制布局而卡顿。高度由 JS 按 sceneH*zoom 设定。 */
+#pdf-pages { position: relative; padding: 0; }
+.pdf-page { position: absolute; left: 50%; transform: translateX(-50%); margin: 0;
+  box-shadow: 0 2px 12px rgba(0,0,0,.35); background: #fff; overflow: hidden; }
+.pdf-page canvas { display: block; }
+.pdf-overlay { position: absolute; left: 0; top: 0; overflow: visible; z-index: 3;
+  /* 标注只是视觉层，绝不能拦截鼠标：SVG 里有标注矩形时，即使矩形自身
+     pointer-events:none，其 <g>/<svg> 仍会命中，导致文字型 PDF 选不了字 */
+  pointer-events: none; }
+/* PDF 文本层：位图之上叠一层透明文字，才能像正常网页那样拖选文字。
+   平时不接收鼠标（否则会挡住画框），选择/高亮工具下才打开。 */
+.pdf-text { position: absolute; left: 0; top: 0; overflow: hidden; line-height: 1;
+  z-index: 2; pointer-events: none; user-select: none; -webkit-user-select: none; }
+.pdf-text.on { pointer-events: auto; user-select: text; -webkit-user-select: text; cursor: text; }
+.pdf-text span { position: absolute; white-space: pre; color: transparent;
+  transform-origin: 0 0; line-height: 1; }
+.pdf-text.on ::selection { background: rgba(30, 136, 229, .32); }
+.pdf-page.rendering-empty::after { content: "渲染中…"; position: absolute; inset: 0; display: flex;
+  align-items: center; justify-content: center; color: #9aa0aa; font-size: 12px; background: #fff; }
+/* 高清升级期间继续显示已有低清图，不再用“渲染中”遮住可读内容。 */
+
+/* ---- 对话框 ---- */
+dialog { border: 1px solid #9aa0aa; border-radius: 5px; padding: 12px; min-width: 420px;
+  box-shadow: 0 8px 30px rgba(0,0,0,.28); }
+dialog::backdrop { background: rgba(0,0,0,.28); }
+dialog h3 { margin: 0 0 10px; font-size: 15px; }
+dialog h4 { margin: 0 0 6px; font-size: 13px; color: #555; }
+.dlg-split { display: flex; gap: 12px; min-height: 300px; }
+.dlg-split > div { flex: 1; min-width: 200px; border: 1px solid #d0d3d8; padding: 8px; overflow: auto; }
+.dlg-actions { display: flex; gap: 6px; margin-top: 8px; }
+.dlg-foot { display: flex; justify-content: flex-end; gap: 6px; margin-top: 12px; }
+.tree ul { list-style: none; margin: 0; padding-left: 14px; }
+.tree li { padding: 2px 0; }
+.tree .toc-item { cursor: pointer; color: #1E88E5; }
+.tree .toc-item:hover { text-decoration: underline; }
+.list .bm-item { padding: 4px 6px; cursor: pointer; border-bottom: 1px solid #eee; }
+.list .bm-item.selected { background: #cfe4fa; }
+.list .bm-item:hover { background: #eef5fd; }
+.form { display: grid; grid-template-columns: 110px 1fr auto; gap: 6px; align-items: center; }
+.form input { width: 100%; }
+.preview { max-height: 60vh; overflow: auto; padding: 10px; background: #fff; line-height: 1.8; }
+.preview blockquote { border-left: 3px solid #1E88E5; margin: 6px 0; padding-left: 10px; color: #555; }
+.preview code { background: #f0f1f3; padding: 1px 4px; border-radius: 3px; }
+#prompt-input { width: 100%; height: 90px; }
+#message-text { margin: 8px 0 16px; }
+
+/* ---- 非阻塞加载提示 ---- */
+.loading-tip { position: fixed; left: 50%; top: 14px; transform: translateX(-50%);
+  z-index: 999; padding: 8px 18px; background: rgba(28, 40, 56, .92); color: #fff;
+  border-radius: 18px; font-size: 13px; box-shadow: 0 4px 16px rgba(0,0,0,.3);
+  pointer-events: none; white-space: nowrap; }
+.loading-tip::after { content: "…"; animation: mr-dots 1.2s steps(3, end) infinite; }
+@keyframes mr-dots { 0% { content: ""; } 33% { content: "."; } 66% { content: ".."; } 100% { content: "..."; } }
+
+/* ---- 截图对话框 ---- */
+#shot-text { margin: 6px 0 14px; }

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>我的阅读器</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ============ 文件列表 ============ -->
+<div id="browser-view" class="view active">
+  <div class="topbar">
+    <button id="btn-dir">选择目录</button>
+    <button id="btn-file">打开文件</button>
+    <button id="btn-recent">最近阅读</button>
+    <button id="btn-edit-note">编辑备注</button>
+    <button id="btn-clear-note">清空备注</button>
+    <button id="btn-open-note" disabled>打开笔记</button>
+    <button id="btn-settings">设置</button>
+    <span id="lbl-dir" class="dir-label"></span>
+    <label>搜索:</label><input id="search" type="text" placeholder="搜索文件名...">
+    <label>筛选:</label><select id="filter"></select>
+    <button id="btn-refresh">刷新</button>
+  </div>
+  <div class="table-wrap">
+    <table id="file-table">
+      <colgroup>
+        <col data-col="name"><col data-col="ext"><col data-col="size">
+        <col data-col="has_note"><col data-col="note">
+      </colgroup>
+      <thead><tr>
+        <th data-col="name">文件名<span class="col-resizer" title="拖动调整列宽 / 双击恢复默认"></span></th>
+        <th data-col="ext">类型<span class="col-resizer" title="拖动调整列宽 / 双击恢复默认"></span></th>
+        <th data-col="size">大小<span class="col-resizer" title="拖动调整列宽 / 双击恢复默认"></span></th>
+        <th data-col="has_note">笔记状态<span class="col-resizer" title="拖动调整列宽 / 双击恢复默认"></span></th>
+        <th data-col="note">备注<span class="col-resizer" title="拖动调整列宽 / 双击恢复默认"></span></th>
+      </tr></thead>
+      <tbody id="file-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ============ 阅读界面 ============ -->
+<div id="reader-view" class="view">
+  <div class="toolbar">
+    <button id="btn-back">返回</button>
+    <button id="btn-prev" class="narrow">←</button>
+    <button id="btn-next" class="narrow">→</button>
+    <button id="btn-add-bm">加书签</button>
+    <span class="tool-group" id="tool-group">
+      <button data-tool="select" class="active">选择</button>
+      <button data-tool="highlight">高亮</button>
+      <button data-tool="underline">下划线</button>
+      <button data-tool="line">直线</button>
+      <button data-tool="arrow">箭头</button>
+      <button data-tool="rect">矩形</button>
+      <button data-tool="screenshot">截图</button>
+    </span>
+    <span class="sep"></span><label>色:</label>
+    <span id="color-group" class="color-group"></span>
+    <span class="sep"></span><label>宽:</label>
+    <select id="width-sel"><option>2</option><option>3</option><option>4</option><option>5</option></select>
+    <button id="btn-undo">撤销</button>
+    <button id="btn-clear-ann">清除</button>
+    <span class="flex"></span>
+    <span id="lbl-progress" class="progress">已读 0%</span>
+    <button id="btn-zoom-in">放大</button>
+    <button id="btn-zoom-out">缩小</button>
+    <button id="btn-fit">适宽</button>
+    <span id="lbl-zoom" class="zoom">100%</span>
+    <button id="btn-write-note">写入笔记</button>
+  </div>
+
+  <div class="fmtbar" id="fmtbar">
+    <label>字体:</label>
+    <select id="font-sel">
+      <option>Microsoft YaHei</option><option>SimSun</option><option>SimHei</option>
+      <option>KaiTi</option><option>FangSong</option><option>Consolas</option><option>Arial</option>
+    </select>
+    <label>字号:</label>
+    <select id="size-sel"><option>12</option><option>14</option><option selected>16</option>
+      <option>18</option><option>20</option><option>22</option><option>24</option><option>28</option><option>32</option></select>
+    <label>行距:</label>
+    <input id="line-in" type="number" min="1" max="3" step="0.1" value="1.5">
+    <span class="flex"></span>
+    <button id="btn-fullscreen">全屏</button>
+  </div>
+
+  <div class="split" id="split">
+    <div class="left-pane">
+      <aside id="toc-pane" class="toc-pane">
+        <div class="toc-head">目录 / 书签</div>
+        <div class="toc-body">
+          <div class="toc-col" id="toc-col-tree">
+            <div class="toc-col-head">目录</div>
+            <div id="toc-tree" class="tree"></div>
+          </div>
+          <div id="toc-inner-divider" class="divider divider-v"></div>
+          <div class="toc-col toc-col-bm" id="toc-col-bm">
+            <div class="toc-col-head">书签
+              <button id="bm-del">删除选中</button><button id="bm-clear">清空</button>
+            </div>
+            <div id="bm-list" class="list"></div>
+          </div>
+        </div>
+      </aside>
+      <div id="toc-divider" class="divider" data-side="toc"></div>
+      <div class="reader-zone">
+        <iframe id="page-frame" class="page-frame"></iframe>
+        <div id="pdf-area" class="pdf-area hidden">
+          <div class="pdf-bar" id="pdf-bar">
+            <button id="pdf-prev" title="上一页">上一页</button>
+            <span id="pdf-page-info">0 / 0</span>
+            <button id="pdf-next" title="下一页">下一页</button>
+            <span class="pdf-sep"></span>
+            <label>跳转:</label><input id="pdf-jump" type="number" min="1" value="1">
+            <button id="pdf-export">导出当前页(含标注)</button>
+          </div>
+          <div id="pdf-pages"></div>
+        </div>
+      </div>
+    </div>
+    <div id="note-divider" class="divider" data-side="note"></div>
+    <div class="right-pane">
+      <div class="note-tools">
+        <button id="btn-preview-note">预览笔记</button>
+        <button id="btn-export-note">导出笔记</button>
+        <button id="btn-delete-note">删除笔记</button>
+      </div>
+      <textarea id="note-edit" placeholder="在此输入 Markdown 笔记..."></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 对话框 ============ -->
+<dialog id="dlg-settings">
+  <h3>设置</h3>
+  <div class="form">
+    <label>数据目录</label><input id="cfg-db" type="text"><button data-browse="cfg-db">浏览</button>
+    <label>笔记目录</label><input id="cfg-note" type="text"><button data-browse="cfg-note">浏览</button>
+    <label>Markdown 编辑器</label><input id="cfg-editor" type="text"><button data-browse="cfg-editor">浏览</button>
+    <label>下翻快捷键</label><input id="cfg-pd" type="text">
+    <label>上翻快捷键</label><input id="cfg-pu" type="text">
+    <label>全屏快捷键</label><input id="cfg-fs" type="text">
+    <label>目录快捷键</label><input id="cfg-toc" type="text">
+    <label>PDF 渲染模式</label><select id="cfg-pdf-mode">
+      <option value="high">高清模式 (清晰，较慢)</option>
+      <option value="fast">极速模式 (略糊，秒开)</option>
+    </select>
+  </div>
+  <div class="dlg-foot"><button id="cfg-save">保存</button><button id="cfg-cancel">取消</button></div>
+</dialog>
+
+<dialog id="dlg-preview"><h3>笔记预览</h3><div id="preview-body" class="preview"></div>
+  <div class="dlg-foot"><button id="preview-close">关闭</button></div></dialog>
+
+<dialog id="dlg-prompt"><h3 id="prompt-title"></h3><textarea id="prompt-input"></textarea>
+  <div class="dlg-foot"><button id="prompt-ok">确定</button><button id="prompt-cancel">取消</button></div></dialog>
+
+<dialog id="dlg-message"><p id="message-text"></p>
+  <div class="dlg-foot"><button id="message-ok">确定</button></div></dialog>
+
+<dialog id="dlg-shot">
+  <h3>截图完成</h3>
+  <p id="shot-text">截图已捕获，请选择操作：</p>
+  <div class="dlg-foot">
+    <button id="shot-save">保存为文件</button>
+    <button id="shot-copy">复制到剪贴板</button>
+    <button id="shot-cancel">取消</button>
+  </div>
+</dialog>
+
+<div id="loading-tip" class="loading-tip hidden"></div>
+
+<script src="vendor/pdf.min.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>

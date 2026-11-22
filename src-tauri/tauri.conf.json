@@ -1,0 +1,34 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "我的阅读器",
+  "version": "1.0.0",
+  "identifier": "com.myreader.desktop",
+  "build": {
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "我的阅读器",
+        "width": 1280,
+        "height": 820,
+        "minWidth": 900,
+        "minHeight": 560,
+        "resizable": true,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "msi"],
+    "icon": ["icons/icon.ico", "icons/icon.png"],
+    "shortDescription": "我的阅读器",
+    "longDescription": "EPUB / PDF / TXT 电子书阅读器，支持分块加载、标注、书签与笔记",
+    "copyright": "Copyright © 2026"
+  }
+}
