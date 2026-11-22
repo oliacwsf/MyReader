@@ -83,16 +83,12 @@ td.col-note.no { color: #b9bec7; }
 .divider-v:hover, .divider-v.active { background: #1E88E5; }
 .divider { flex: 0 0 5px; width: 5px; cursor: col-resize; background: #d8dadd; }
 .divider:hover, .divider.active { background: #1E88E5; }
-/* 侧栏收起/展开小按钮 */
-.toc-toggle { position: absolute; top: 5px; right: 6px; z-index: 6; width: 22px; height: 22px;
-  padding: 0; border: 1px solid #c8cbd1; border-radius: 3px; background: #fff; color: #556;
-  font-size: 12px; line-height: 1; cursor: pointer; }
-.toc-toggle:hover { background: #eef5fd; border-color: #1E88E5; color: #1E88E5; }
+/* 侧栏收起/展开切换按钮：固定左边缘中间，收起与展开共用一个样式，仅 ◀/▶ 文案切换 */
 .toc-reopen { position: absolute; left: 0; top: 50%; transform: translateY(-50%); z-index: 6;
-  width: 16px; height: 64px; padding: 0; border: 1px solid #c8cbd1; border-left: 0;
-  border-radius: 0 4px 4px 0; background: #fff; color: #556; font-size: 12px; cursor: pointer;
-  box-shadow: 1px 0 4px rgba(0,0,0,.12); }
-.toc-reopen:hover { background: #eef5fd; color: #1E88E5; }
+  width: 13px; height: 56px; padding: 0; border: 1px solid #c8cbd1; border-left: 0;
+  border-radius: 0 4px 4px 0; background: #fff; color: #556; font-size: 11px; line-height: 1;
+  cursor: pointer; box-shadow: 1px 0 4px rgba(0,0,0,.12); }
+.toc-reopen:hover { background: #eef5fd; color: #1E88E5; border-color: #1E88E5; }
 body.col-resizing { cursor: col-resize !important; user-select: none !important; }
 body.col-resizing iframe { pointer-events: none; }
 

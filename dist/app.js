@@ -378,6 +378,7 @@ async function loadPage(n, opts = {}) {
   if (opts.frag) w2.ReaderAnnot.scrollToAnchor(opts.frag);
   else if (opts.toBottom) w2.ReaderAnnot.scrollToPercent(100);
   else if (opts.scrollPos != null && opts.scrollPos > 0) w2.ReaderAnnot.scrollToPercent(opts.scrollPos);
+  else w2.ReaderAnnot.scrollToPercent(0);   // 下一页 / TOC 前进：显式回页首，别让 iframe 残留旧滚动位置
   S.pageReady = true;
   // 字体/图片晚一步就绪时文字会重排，标注得跟着复算一次，否则会整体偏一行
   setTimeout(() => {
@@ -664,7 +665,9 @@ function renderTocSidebar() {
 function toggleTocPane() {
   const hidden = $('#toc-pane').classList.toggle('hidden');
   $('#toc-divider').classList.toggle('hidden', hidden);
-  $('#toc-reopen').classList.toggle('hidden', !hidden);
+  const btn = $('#toc-reopen');
+  btn.textContent = hidden ? '▶' : '◀';
+  btn.title = hidden ? '展开目录/书签栏' : '收起目录/书签栏';
 }
 
 // ---- 可拖动分隔条：笔记栏 / 目录栏 / 目录·书签两栏宽度自由调整并记忆 ----
@@ -704,8 +707,12 @@ function bindPaneResizers() {
   const vw = () => Math.max(320, window.innerWidth);
   splitter(noteDiv, notePane, -1, 200, vw() * 0.75, 'mr.noteW');   // 右拖 → 笔记变窄
   splitter(tocDiv, tocPane, 1, 220, () => Math.min(560, window.innerWidth * 0.56), 'mr.tocW'); // 右拖 → 目录整体变宽
-  // 目录栏内部：目录列与书签列左右分栏，中间分隔条可拖动，宽度记忆
-  splitter(tocInnerDiv, tocTreeCol, 1, 80, () => Math.max(80, tocPane.getBoundingClientRect().width - 110), 'mr.tocColW');
+  // 目录栏内部：目录列与书签列左右分栏，中间分隔条可拖动，宽度记忆。
+  // 目录列最小缩到「目录」两个字宽（13px×2 + 头部左右 padding ≈ 42px）；
+  // 最大可拖到 tocPane 宽度减去分隔条本身，即把书签列完全压到 0。
+  const TOC_COL_MIN = 42;
+  splitter(tocInnerDiv, tocTreeCol, 1, TOC_COL_MIN,
+    () => Math.max(TOC_COL_MIN, tocPane.getBoundingClientRect().width - 5), 'mr.tocColW');
 }
 
 // ---------------- PDF：复刻 Python 版 PdfViewerWidget 的懒加载状态机 ----------------
@@ -1796,7 +1803,6 @@ function bindEvents() {
   };
   $('#btn-fullscreen').onclick = () => invoke('toggle_fullscreen').catch(() => {});
 
-  $('#toc-toggle').onclick = toggleTocPane;
   $('#toc-reopen').onclick = toggleTocPane;
   $('#bm-add').onclick = addBookmark;
   $('#bm-del').onclick = async () => {

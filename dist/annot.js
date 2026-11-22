@@ -613,8 +613,12 @@
     },
     scrollToAnchor: function (id) { return jumpToAnchor(id); },
     scrollToPercent: function (pct) {
-      var p = paper(); if (!p) return;
       var total = document.documentElement.scrollHeight - window.innerHeight;
+      // 边界值无条件滚动：doc.open()/write() 重写 iframe 后，部分内核（WebView2）
+      // 会保留旧页面的 scrollY，导致「下一页」加载完停在底部而非首页。
+      // 这里 0 就强制回顶部、100 就强制到底部，不依赖 total>0 的判断。
+      if (pct <= 0) { window.scrollTo(0, 0); return; }
+      if (pct >= 100) { window.scrollTo(0, Math.max(0, total)); return; }
       if (total > 0) window.scrollTo(0, pct * total / 100);
     },
     applyStyle: function (font, size, spacing, zoomVal) {
