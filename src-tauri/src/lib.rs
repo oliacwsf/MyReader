@@ -157,10 +157,11 @@ pub struct BookMeta {
 }
 
 #[tauri::command]
-fn open_book(path: String, state: tauri::State<'_, AppState>) -> Result<BookMeta, String> {
+async fn open_book(path: String, state: tauri::State<'_, AppState>) -> Result<BookMeta, String> {
     let p = PathBuf::from(&path);
     let ext = p.extension().and_then(|s| s.to_str()).unwrap_or("").to_ascii_lowercase();
-    // 只建索引：EPUB 不在此处重写章节 / 内联图片，页面 HTML 推迟到 get_page 按 chunk 生成
+    // 只建索引：EPUB 不在此处重写章节 / 内联图片，页面 HTML 推迟到 get_page 按 chunk 生成。
+    // async 命令在后台线程池执行，避免大型 EPUB 的索引扫描阻塞 WebView 主线程。
     let book = match ext.as_str() {
         "epub" => epub::open_epub(&p)?,
         "txt" | "html" | "htm" => epub::open_text(&p)?,
@@ -177,7 +178,7 @@ fn open_book(path: String, state: tauri::State<'_, AppState>) -> Result<BookMeta
 }
 
 #[tauri::command]
-fn get_page(path: String, index: usize, state: tauri::State<'_, AppState>) -> Result<String, String> {
+async fn get_page(path: String, index: usize, state: tauri::State<'_, AppState>) -> Result<String, String> {
     let mut books = state.books.lock().unwrap();
     let book = books.get_mut(&path).ok_or("书籍未打开")?;
     book.render_page(index)
