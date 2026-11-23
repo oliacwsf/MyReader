@@ -706,7 +706,9 @@ function bindPaneResizers() {
   }
   const vw = () => Math.max(320, window.innerWidth);
   splitter(noteDiv, notePane, -1, 200, vw() * 0.75, 'mr.noteW');   // 右拖 → 笔记变窄
-  splitter(tocDiv, tocPane, 1, 220, () => Math.min(560, window.innerWidth * 0.56), 'mr.tocW'); // 右拖 → 目录整体变宽
+  // 侧栏整体：最小缩到「目录列 42px + 内部分隔条 5px」，此时书签列被完全压到 0
+  const TOC_PANE_MIN = 47;
+  splitter(tocDiv, tocPane, 1, TOC_PANE_MIN, () => Math.min(560, window.innerWidth * 0.56), 'mr.tocW');
   // 目录栏内部：目录列与书签列左右分栏，中间分隔条可拖动，宽度记忆。
   // 目录列最小缩到「目录」两个字宽（13px×2 + 头部左右 padding ≈ 42px）；
   // 最大可拖到 tocPane 宽度减去分隔条本身，即把书签列完全压到 0。
@@ -896,16 +898,11 @@ async function buildPdfItems() {
     const wrap = document.createElement('div');
     wrap.className = 'pdf-page';
     wrap.dataset.page = String(i);
-    const canvas = document.createElement('canvas');
-    canvas.width = 1; canvas.height = 1;        // pix_item = None：不分配位图
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('class', 'pdf-overlay');
-    svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-    wrap.appendChild(canvas); wrap.appendChild(svg);
-    bindPdfDrawing(wrap);
+    // canvas / svg 延迟到真正需要时再创建：几千页的书打开时只建轻量 div 占位，
+    // 省掉上万个 DOM 节点与逐页样式写入，首屏显著更快（画图/渲染时才补建）。
     frag.appendChild(wrap);
     P.items.push({
-      num: i, wPt: sz.w, hPt: sz.h, rw, rh, y, wrap, canvas, svg,
+      num: i, wPt: sz.w, hPt: sz.h, rw, rh, y, wrap, canvas: null, svg: null,
       w: rw, h: rh,
       isRendered: false, isHighRes: false, renderingHigh: false, pixItem: null,
     });
@@ -916,6 +913,29 @@ async function buildPdfItems() {
   applyZoomToItems();
   // 页面尺寸抽查会读取中部/尾部页，若立即执行会和首屏渲染争抢 range I/O。
   // 延后到首个高清页完成后再做（见 onRenderFinished）。
+}
+
+/** 按需创建位图 canvas（延迟到首次渲染该页时），返回已挂载到 wrap 的 canvas */
+function pdfEnsureCanvas(it) {
+  if (it.canvas) return it.canvas;
+  const canvas = document.createElement('canvas');
+  canvas.width = 1; canvas.height = 1;
+  it.wrap.insertBefore(canvas, it.wrap.firstChild);
+  it.canvas = canvas;
+  return canvas;
+}
+
+/** 按需创建标注 svg 层（延迟到首次画标注/建文本层时），始终保持在 wrap 最上层 */
+function pdfEnsureSvg(it) {
+  if (it.svg) return it.svg;
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'pdf-overlay');
+  svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  svg.setAttribute('width', it.w); svg.setAttribute('height', it.h);
+  svg.setAttribute('viewBox', `0 0 ${it.w} ${it.h}`);
+  it.wrap.appendChild(svg);
+  it.svg = svg;
+  return svg;
 }
 
 /** 单页点尺寸（缓存），等价于 fitz 的 page.rect */
@@ -994,9 +1014,11 @@ function applyZoomToItems() {
     it.w = w; it.h = h;
     it.wrap.style.top = Math.round(it.y * z) + 'px';
     it.wrap.style.width = w + 'px'; it.wrap.style.height = h + 'px';
-    it.canvas.style.width = w + 'px'; it.canvas.style.height = h + 'px';
-    it.svg.setAttribute('width', w); it.svg.setAttribute('height', h);
-    it.svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    if (it.canvas) { it.canvas.style.width = w + 'px'; it.canvas.style.height = h + 'px'; }
+    if (it.svg) {
+      it.svg.setAttribute('width', w); it.svg.setAttribute('height', h);
+      it.svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    }
     // 文本层坐标是按旧尺寸算的，缩放后必须重建，否则选中的字与显示错位
     if (it.textLayer) { it.textLayer.remove(); it.textLayer = null; }
   }
@@ -1055,7 +1077,7 @@ function updateViewportRender() {
 
 /** 对应 removeItem(d['pix_item']) + 状态复位 */
 function pdfReleasePixmap(it) {
-  if (it.canvas.width !== 1 || it.canvas.height !== 1) {
+  if (it.canvas && (it.canvas.width !== 1 || it.canvas.height !== 1)) {
     it.canvas.width = 1; it.canvas.height = 1;
   }
   it.pixItem = null;
@@ -1115,8 +1137,9 @@ async function renderPdfTask(it, isHigh, ratio, w, h, gen) {
     P.renderTask = task;
     await task.promise;
     if (gen !== P.generation || !P.doc) return;
-    it.canvas.width = w; it.canvas.height = h;
-    it.canvas.getContext('2d', { alpha: false }).drawImage(off, 0, 0);
+    const cv = pdfEnsureCanvas(it);
+    cv.width = w; cv.height = h;
+    cv.getContext('2d', { alpha: false }).drawImage(off, 0, 0);
     onRenderFinished(it, isHigh, gen);
   } catch (e) {
     if (gen === P.generation) {
@@ -1234,6 +1257,7 @@ function pdfClearAll() {
   P.items = [];
   P.pageChars = {};
   P.sceneH = 0;
+  pdfDraw.wrap = null; pdfDraw.start = null; pdfClearDrawPreview();   // 画图委托状态复位
   const holder = $('#pdf-pages');
   holder.innerHTML = '';
   holder.style.height = '';
@@ -1251,7 +1275,7 @@ function pdfRectsOf(a) {
 }
 
 function renderPdfAnnsFor(p) {
-  const svg = p.svg;
+  const svg = pdfEnsureSvg(p);
   while (svg.firstChild) svg.removeChild(svg.firstChild);
   const W = p.w, H = p.h;
   for (const a of S.pdf.anns) {
@@ -1337,7 +1361,7 @@ async function buildPdfTextLayer(it) {
     layer.className = 'pdf-text' + (PDF_SHAPES.includes(S.tool) ? '' : ' on');
     layer.style.width = it.w + 'px';
     layer.style.height = it.h + 'px';
-    it.wrap.insertBefore(layer, it.svg);
+    it.wrap.insertBefore(layer, pdfEnsureSvg(it));
     const spans = [], targets = [];
     for (const item of (tc.items || [])) {
       if (!item.str) continue;
@@ -1439,77 +1463,94 @@ function pdfWrapOfSelection() {
   return null;
 }
 
-function bindPdfDrawing(wrap) {
-  let start = null, preview = null, head = null;
-  const rel = (e) => {
-    const r = wrap.getBoundingClientRect();
-    return { x: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)),
-             y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) };
-  };
-  const clearPreview = () => {
-    if (preview && preview.parentNode) preview.parentNode.removeChild(preview);
-    if (head && head.parentNode) head.parentNode.removeChild(head);
-    preview = null; head = null;
-  };
+// 画图交互改为容器级事件委托：几千页的书不再给每页各绑 4 个监听器 + 一堆闭包，
+// 打开 PDF 时省下海量事件注册，交互逻辑与逐页绑定版完全一致。
+const pdfDraw = { wrap: null, start: null, preview: null, head: null };
+function pdfWrapFrom(e) {
+  let n = e.target;
+  while (n && n.nodeType === 1 && !n.classList.contains('pdf-page')) n = n.parentNode;
+  return (n && n.classList && n.classList.contains('pdf-page')) ? n : null;
+}
+function pdfRel(wrap, e) {
+  const r = wrap.getBoundingClientRect();
+  return { x: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)),
+           y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) };
+}
+function pdfClearDrawPreview() {
+  const d = pdfDraw;
+  if (d.preview && d.preview.parentNode) d.preview.parentNode.removeChild(d.preview);
+  if (d.head && d.head.parentNode) d.head.parentNode.removeChild(d.head);
+  d.preview = null; d.head = null;
+}
+function pdfNoText(wrap) { return !wrap.querySelector('.pdf-text span'); }
+function pdfIsTextTool(wrap) { return (S.tool === 'highlight' || S.tool === 'underline') && !pdfNoText(wrap); }
+function pdfIsDrawTool(wrap) { return PDF_SHAPES.includes(S.tool)
+  || ((S.tool === 'highlight' || S.tool === 'underline') && pdfNoText(wrap)); }
 
-  // 扫描件没有文字层，选不了字，就让高亮/下划线退回"拖框"模式
-  const noText = () => !wrap.querySelector('.pdf-text span');
-  const isTextTool = () => (S.tool === 'highlight' || S.tool === 'underline') && !noText();
-  const isDrawTool = () => PDF_SHAPES.includes(S.tool)
-    || ((S.tool === 'highlight' || S.tool === 'underline') && noText());
-
-  wrap.addEventListener('mousedown', (e) => {
-    if (e.button !== 0 || !isDrawTool()) return;
+function bindPdfDrawing(holder) {
+  holder.addEventListener('mousedown', (e) => {
+    const wrap = pdfWrapFrom(e);
+    if (!wrap) return;
+    pdfDraw.wrap = wrap;
+    if (e.button !== 0 || !pdfIsDrawTool(wrap)) return;
     e.preventDefault();
-    start = rel(e);
-    clearPreview();
-    const svg = wrap.querySelector('svg');
+    pdfDraw.start = pdfRel(wrap, e);
+    pdfClearDrawPreview();
+    const it = S.pdf.items[+(wrap.dataset.page) - 1];
+    const svg = it ? pdfEnsureSvg(it) : null;
+    if (!svg) return;
     if (S.tool === 'screenshot') {
       // 自由矩形截图：玫红虚线预览框（对齐 Python 版 _update_shape_preview）
-      preview = svgNode('rect', { fill: 'rgba(255,64,129,.16)', stroke: '#FF4081',
+      pdfDraw.preview = svgNode('rect', { fill: 'rgba(255,64,129,.16)', stroke: '#FF4081',
         'stroke-dasharray': '5 4', 'stroke-width': 1.5 });
-      svg.appendChild(preview);
+      svg.appendChild(pdfDraw.preview);
     } else if (S.tool === 'rect' || S.tool === 'highlight' || S.tool === 'underline') {
-      preview = svgNode('rect', { fill: 'rgba(30,136,229,.12)', stroke: S.color,
+      pdfDraw.preview = svgNode('rect', { fill: 'rgba(30,136,229,.12)', stroke: S.color,
         'stroke-dasharray': '4 3', 'stroke-width': 1 });
-      svg.appendChild(preview);
+      svg.appendChild(pdfDraw.preview);
     } else {
       // 预览就该是线：旧版所有工具都先画一个矩形虚框，手感很怪
-      preview = svgNode('line', { stroke: S.color, 'stroke-dasharray': '5 4', 'stroke-width': 1.5 });
-      svg.appendChild(preview);
-      if (S.tool === 'arrow') { head = svgNode('polygon', { fill: S.color, opacity: '0.75' }); svg.appendChild(head); }
+      pdfDraw.preview = svgNode('line', { stroke: S.color, 'stroke-dasharray': '5 4', 'stroke-width': 1.5 });
+      svg.appendChild(pdfDraw.preview);
+      if (S.tool === 'arrow') { pdfDraw.head = svgNode('polygon', { fill: S.color, opacity: '0.75' }); svg.appendChild(pdfDraw.head); }
     }
   });
-  wrap.addEventListener('mousemove', (e) => {
-    if (!start || !preview) return;
-    const b = rel(e), W = wrap.clientWidth, H = wrap.clientHeight;
+
+  holder.addEventListener('mousemove', (e) => {
+    const d = pdfDraw;
+    if (!d.wrap || !d.start || !d.preview) return;
+    const b = pdfRel(d.wrap, e), W = d.wrap.clientWidth, H = d.wrap.clientHeight;
     if (S.tool === 'rect' || S.tool === 'highlight' || S.tool === 'underline' || S.tool === 'screenshot') {
-      preview.setAttribute('x', Math.min(start.x, b.x) * W);
-      preview.setAttribute('y', Math.min(start.y, b.y) * H);
-      preview.setAttribute('width', Math.abs(b.x - start.x) * W);
-      preview.setAttribute('height', Math.abs(b.y - start.y) * H);
+      d.preview.setAttribute('x', Math.min(d.start.x, b.x) * W);
+      d.preview.setAttribute('y', Math.min(d.start.y, b.y) * H);
+      d.preview.setAttribute('width', Math.abs(b.x - d.start.x) * W);
+      d.preview.setAttribute('height', Math.abs(b.y - d.start.y) * H);
     } else {
-      preview.setAttribute('x1', start.x * W); preview.setAttribute('y1', start.y * H);
-      preview.setAttribute('x2', b.x * W); preview.setAttribute('y2', b.y * H);
-      if (head) {
-        const ang = Math.atan2((b.y - start.y) * H, (b.x - start.x) * W);
+      d.preview.setAttribute('x1', d.start.x * W); d.preview.setAttribute('y1', d.start.y * H);
+      d.preview.setAttribute('x2', b.x * W); d.preview.setAttribute('y2', b.y * H);
+      if (d.head) {
+        const ang = Math.atan2((b.y - d.start.y) * H, (b.x - d.start.x) * W);
         const len = 11, tipX = b.x * W, tipY = b.y * H;
-        head.setAttribute('points', [[tipX, tipY],
+        d.head.setAttribute('points', [[tipX, tipY],
           [tipX - len * Math.cos(ang - 0.42), tipY - len * Math.sin(ang - 0.42)],
           [tipX - len * Math.cos(ang + 0.42), tipY - len * Math.sin(ang + 0.42)]]
           .map((q) => q[0].toFixed(1) + ',' + q[1].toFixed(1)).join(' '));
       }
     }
   });
-  wrap.addEventListener('mouseup', (e) => {
-    if (isTextTool()) {
+
+  holder.addEventListener('mouseup', (e) => {
+    const d = pdfDraw;
+    const wrap = d.wrap;
+    if (!wrap) return;
+    if (pdfIsTextTool(wrap)) {
       // 文字选择在 mouseup 之后才定稿，等一拍再取
       setTimeout(() => { commitPdfSelection(wrap); }, 0);
       return;
     }
-    if (!start) return;
-    const a = start, b = rel(e);
-    start = null; clearPreview();
+    if (!d.start) return;
+    const a = d.start, b = pdfRel(wrap, e);
+    d.start = null; pdfClearDrawPreview(); d.wrap = null;
     if (Math.abs(b.x - a.x) < 0.002 || Math.abs(b.y - a.y) < 0.002) return;
     if (S.tool === 'screenshot') {          // 自由矩形截图：不产生标注，直接截取位图
       doPdfScreenshot(wrap, a, b);
@@ -1528,7 +1569,10 @@ function bindPdfDrawing(wrap) {
     renderPdfAnnotations(); persistPdfAnns();
     setTool('select');
   });
-  wrap.addEventListener('mouseleave', () => { start = null; clearPreview(); });
+
+  holder.addEventListener('mouseleave', () => {
+    pdfDraw.start = null; pdfClearDrawPreview(); pdfDraw.wrap = null;
+  });
 }
 
 function persistPdfAnns() {
@@ -1551,7 +1595,7 @@ function loadSvgImage(svg) {
 async function doPdfScreenshot(wrap, a, b) {
   const it = S.pdf.items.find((i) => i.wrap === wrap);
   if (!it) return;
-  if (!it.isRendered || !it.canvas.width || it.canvas.width < 2) {
+  if (!it.isRendered || !it.canvas || !it.canvas.width || it.canvas.width < 2) {
     toast('当前页还没渲染完，请稍候再截图。'); return;
   }
   const W = it.canvas.width, H = it.canvas.height;
@@ -1567,7 +1611,7 @@ async function doPdfScreenshot(wrap, a, b) {
   ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, sw, sh);
   ctx.drawImage(it.canvas, sx, sy, sw, sh, 0, 0, sw, sh);
   try {
-    if (it.svg.children.length) {
+    if (it.svg && it.svg.children.length) {
       const img = await loadSvgImage(it.svg);
       // SVG 使用页面显示坐标，canvas 使用位图像素，二者按比例映射到同一裁剪框。
       const vx = sx / W * it.w, vy = sy / H * it.h;
@@ -1702,15 +1746,17 @@ async function pdfFitWidth() {
 async function exportPdfPagePng() {
   const P = S.pdf;
   const it = P.items[P.page - 1];
-  if (!it || !it.isRendered) { toast('当前页还没渲染完，请稍候再导出。'); return; }
+  if (!it || !it.isRendered || !it.canvas) { toast('当前页还没渲染完，请稍候再导出。'); return; }
   const out = document.createElement('canvas');
   out.width = it.canvas.width; out.height = it.canvas.height;
   const ctx = out.getContext('2d');
   ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, out.width, out.height);
   ctx.drawImage(it.canvas, 0, 0);
   try {
-    const img = await loadSvgImage(it.svg);
-    ctx.drawImage(img, 0, 0, out.width, out.height);
+    if (it.svg && it.svg.children.length) {
+      const img = await loadSvgImage(it.svg);
+      ctx.drawImage(img, 0, 0, out.width, out.height);
+    }
   } catch (e) { console.warn('标注层合成失败', e); }
   const dest = await saveDialog({ defaultPath: `page-${P.page}.png`,
     filters: [{ name: 'PNG 图片', extensions: ['png'] }] });
@@ -1773,6 +1819,7 @@ function bindEvents() {
     if (v) gotoPdfPage(v, false); else updatePdfLabel();
   };
   $('#pdf-area').addEventListener('scroll', pdfOnScroll, { passive: true });
+  bindPdfDrawing($('#pdf-pages'));           // PDF 画图/标注交互：容器级委托，只绑一次
   $('#btn-back').onclick = back;
   $('#btn-prev').onclick = () => S.kind === 'pdf' ? pdfStep(-1) : pageStep(-1);
   $('#btn-next').onclick = () => S.kind === 'pdf' ? pdfStep(1) : pageStep(1);

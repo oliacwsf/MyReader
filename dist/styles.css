@@ -69,7 +69,7 @@ td.col-note.no { color: #b9bec7; }
   font-family: Consolas, monospace; font-size: 13px; line-height: 1.6; }
 
 /* ---- 左侧目录/书签栏 + 可拖动分隔条 ---- */
-.toc-pane { width: 320px; min-width: 220px; max-width: 56%; flex: 0 0 auto; display: flex;
+.toc-pane { width: 320px; min-width: 47px; max-width: 56%; flex: 0 0 auto; display: flex;
   flex-direction: column; position: relative; background: #f5f6f8; border-right: 1px solid #d0d3d8; overflow: hidden; }
 .toc-body { flex: 1; display: flex; min-height: 0; }
 .toc-col { display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
@@ -77,8 +77,8 @@ td.col-note.no { color: #b9bec7; }
   color: #33445c; background: #eceef1; border-bottom: 1px solid #d0d3d8; user-select: none; }
 .toc-col-head button { padding: 0; height: 20px; min-width: 20px; font-size: 14px; line-height: 1; }
 .toc-col > .tree, .toc-col > .list { flex: 1; overflow: auto; padding: 6px 8px; }
-#toc-col-tree { flex: 0 0 auto; width: 52%; }   /* 目录列默认占一半，可拖动分隔条调节 */
-.toc-col-bm { flex: 1 1 0; }                     /* 书签列占据剩余宽度 */
+#toc-col-tree { flex: 0 0 auto; width: 52%; min-width: 42px; }   /* 目录列默认占一半，可拖动分隔条调节；最小缩到"目录"两字 */
+.toc-col-bm { flex: 1 1 0; min-width: 0; }                     /* 书签列占据剩余宽度，可被完全压缩到 0 */
 .divider-v { flex: 0 0 5px; width: 5px; cursor: col-resize; background: #d8dadd; }
 .divider-v:hover, .divider-v.active { background: #1E88E5; }
 .divider { flex: 0 0 5px; width: 5px; cursor: col-resize; background: #d8dadd; }
