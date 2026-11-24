@@ -920,6 +920,10 @@ function pdfEnsureCanvas(it) {
   if (it.canvas) return it.canvas;
   const canvas = document.createElement('canvas');
   canvas.width = 1; canvas.height = 1;
+  // 显示尺寸必须固定为适宽后的布局尺寸（it.w/it.h），而不是内部像素尺寸。
+  // 否则 canvas 会按内部像素宽（低清 700px / 高清更大）撑破 wrap，翻页后“又变大”。
+  canvas.style.width = it.w + 'px';
+  canvas.style.height = it.h + 'px';
   it.wrap.insertBefore(canvas, it.wrap.firstChild);
   it.canvas = canvas;
   return canvas;
@@ -1139,6 +1143,10 @@ async function renderPdfTask(it, isHigh, ratio, w, h, gen) {
     if (gen !== P.generation || !P.doc) return;
     const cv = pdfEnsureCanvas(it);
     cv.width = w; cv.height = h;
+    // 内部像素是渲染分辨率（低清 700px / 高清更高），显示尺寸始终锁定为适宽布局尺寸，
+    // 否则重新渲染/翻页后 canvas 会按像素宽撑破 wrap，出现“又变宽大超出窗口”。
+    cv.style.width = it.w + 'px';
+    cv.style.height = it.h + 'px';
     cv.getContext('2d', { alpha: false }).drawImage(off, 0, 0);
     onRenderFinished(it, isHigh, gen);
   } catch (e) {
