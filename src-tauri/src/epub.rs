@@ -77,10 +77,14 @@ pub struct BookIndex {
 const PAPER_CSS: &str = r#"
 html { background-color: #e6e7ea !important; }
 body { margin: 0 !important; padding: 0 !important; background: transparent !important; }
-.paper { position: relative; width: 820px; margin: 26px auto; padding: 46px 54px;
+.paper { position: relative; width: 100%; max-width: 820px; margin: 26px auto; padding: 46px 54px;
   background: #fff; box-shadow: 0 2px 14px rgba(0,0,0,0.18); box-sizing: border-box;
   min-height: calc(100vh - 52px); word-wrap: break-word; overflow-wrap: break-word;
   font-size: 16px; line-height: 1.8; color: #222; }
+/* 阅读栏窄于纸张宽度时自动适宽，并收窄内边距，避免内容被 padding 挤没 */
+@media (max-width: 700px) {
+  .paper { margin: 12px auto; padding: 26px 20px; }
+}
 .paper img, .paper svg, .paper image { display:block; margin:0 auto !important;
   max-width:100% !important; max-height:90vh !important; object-fit:contain !important; height:auto !important; }
 .paper a { color:#1E88E5; text-decoration:none; cursor:pointer; }
