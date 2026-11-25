@@ -19,6 +19,7 @@ const nextFrame = () => new Promise((r) => requestAnimationFrame(() => requestAn
 const S = {
   cfg: null, files: [], selected: null, sortKey: 'name', sortAsc: true,
   viewMode: 'all',          // 'all' 全部文件 / 'recent' 最近阅读
+  recent: [],               // 最近阅读（后端 SQLite 持久化，随软件目录便携）
   spine: null,              // Rust 端可选返回的 EPUB spine 路径表（路径→页号映射用）
   path: null, kind: null, pages: 0, page: 0, toc: [], bookmarks: [], anns: [],
   color: '#E53935', width: 2, tool: 'select', zoom: 1.0,
@@ -91,52 +92,52 @@ async function loadFiles() {
   S.files = await invoke('list_files', { dir: S.cfg.last_dir, search: $('#search').value, filter: $('#filter').value });
   renderTable();
 }
-// ---- 最近阅读（存 localStorage，最多 10 条，不依赖后端） ----
-const RECENT_KEY = 'mr.recent';
-function loadRecent() {
-  try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch (e) { return []; }
-}
-function saveRecent(list) {
-  try { localStorage.setItem(RECENT_KEY, JSON.stringify(list)); } catch (e) { /* 隐私模式忽略 */ }
-}
+// ---- 最近阅读（存后端 SQLite，随软件目录便携，最多 10 条） ----
 function extOf(p) {
   const m = /\.([^.\/\\]+)$/.exec(String(p || ''));
   return m ? '.' + m[1].toLowerCase() : '';
 }
 function recordRecent(path) {
   if (!path) return;
-  const list = loadRecent().filter((r) => r.path !== path);
-  const f = S.files.find((x) => x.path === path);
-  list.unshift({
-    path,
-    name: f ? f.name : String(path).split(/[\\/]/).pop(),
-    ext: f ? f.ext : extOf(path),
-    size: f ? f.size : 0,
-    has_note: f ? !!f.has_note : false,
-    note: f ? (f.note || '') : '',
-    ts: Date.now(),
-  });
-  saveRecent(list.slice(0, 10));
+  // 持久化到数据库（exe 同目录），并同步更新内存缓存
+  invoke('record_recent', { path }).catch(() => {});
+  S.recent = [{ path, ts: Date.now() }, ...S.recent.filter((r) => r.path !== path)].slice(0, 10);
 }
-/** 局部更新「最近阅读」缓存里某条记录的字段（笔记状态/备注变化后即时同步） */
+/** 局部更新内存缓存的字段（渲染时会以最新文件列表覆盖，此处仅保证内存一致） */
 function patchRecent(path, patch) {
   if (!path) return;
-  const list = loadRecent();
-  let changed = false;
-  for (const r of list) {
-    if (r.path === path) { Object.assign(r, patch); changed = true; }
+  for (const r of S.recent) {
+    if (r.path === path) Object.assign(r, patch);
   }
-  if (changed) saveRecent(list);
+}
+/** 盘符变化自适应：记录里的绝对路径失效时，按「文件名」在当前文件列表中重新定位。
+ *  仅在文件名唯一匹配时才替换，避免同名文件产生歧义。 */
+function resolveRecentPath(r) {
+  const direct = S.files.find((f) => f.path === r.path);
+  if (direct) return direct;
+  const name = String(r.path || '').split(/[\\/]/).pop().toLowerCase();
+  const fallback = String(r.name || '').toLowerCase();
+  if (!name && !fallback) return null;
+  const hits = S.files.filter((f) => {
+    const fn = String(f.name || '').toLowerCase();
+    return (name && fn === name) || (fallback && fn === fallback);
+  });
+  return hits.length === 1 ? hits[0] : null;
 }
 function renderTable() {
   const key = S.sortKey, asc = S.sortAsc;
-  let base = S.viewMode === 'recent' ? loadRecent() : S.files;
+  let base = S.viewMode === 'recent' ? S.recent : S.files;
   if (S.viewMode === 'recent') {
-    // 最近阅读的 has_note / note 以当前文件列表的最新数据为准，删笔记/清备注后能立即反映
+    // 先做路径自适应：记录里的绝对路径失效时（换电脑盘符变化），按文件名重新定位并回写内存缓存
+    for (const r of S.recent) {
+      const live = resolveRecentPath(r);
+      if (live && live.path !== r.path) r.path = live.path;
+    }
+    // 最近阅读条目只持久化 path/ts；name/ext/size/note/has_note 均以当前文件列表为准，删笔记/清备注后能立即反映
     base = base.map((r) => {
-      const live = S.files.find((f) => f.path === r.path);
-      if (live) return { ...r, has_note: live.has_note, note: live.note || '' };
-      return r;
+      const live = resolveRecentPath(r);
+      if (live) return { path: live.path, ts: r.ts, name: live.name, ext: live.ext, size: live.size, has_note: live.has_note, note: live.note || '' };
+      return { path: r.path, ts: r.ts, name: String(r.path || '').split(/[\\/]/).pop(), ext: extOf(r.path), size: 0, has_note: false, note: '' };
     });
     // 最近阅读只有 10 条，搜索/筛选在前端就地过滤即可
     const q = ($('#search').value || '').toLowerCase();
@@ -2064,6 +2065,7 @@ async function main() {
   bindPaneResizers();
   S.annotJs = await invoke('annot_script');
   bindEvents();
+  S.recent = await invoke('get_recent').catch(() => []);
   await loadFiles();
   showView('browser');
 }
