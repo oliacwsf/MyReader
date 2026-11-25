@@ -50,9 +50,11 @@ td.col-note.no { color: #b9bec7; }
 #file-table tbody td.cell-note:focus { outline: 2px solid #1E88E5; outline-offset: -2px; background: #eaf3fd; }
 
 /* ---- 阅读区 ---- */
-.toolbar, .fmtbar { display: flex; align-items: center; gap: 3px; padding: 3px 5px;
-  background: #e9eaed; border-bottom: 1px solid #c8cbd1; flex-wrap: wrap; }
-.toolbar button.narrow { width: 28px; padding: 0; }
+.toolbar, .fmtbar { display: flex; align-items: center; gap: 4px; padding: 4px 6px;
+  background: #e9eaed; border-bottom: 1px solid #c8cbd1; }
+.toolbar { flex-wrap: wrap; }
+.fmtbar { flex-wrap: nowrap; overflow: hidden; }
+.toolbar button.narrow, .fmtbar button.narrow { width: 28px; padding: 0; }
 .sep { width: 8px; }
 .tool-group { display: inline-flex; gap: 2px; }
 .color-group { display: inline-flex; gap: 2px; }
@@ -62,6 +64,12 @@ td.col-note.no { color: #b9bec7; }
 .progress { color: #1E88E5; font-weight: bold; margin: 0 8px; }
 .zoom { width: 44px; text-align: center; }
 #line-in { width: 58px; }
+/* 第二行工具栏：左（目录/书签）·中（格式/导航）·右（笔记工具）三区 */
+.fmt-left, .fmt-center, .fmt-right { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+.fmt-center { flex: 1 1 auto; justify-content: center; min-width: 0; }
+.fmt-tab { font-weight: 600; color: #33445c; white-space: nowrap; padding: 0 2px; line-height: 24px; }
+.fmt-epub, .fmt-pdf { display: flex; align-items: center; gap: 4px; }
+.fmtbar select, .fmtbar input { height: 24px; }
 
 .split { flex: 1; display: flex; min-height: 0; }
 .left-pane { flex: 1; min-width: 0; position: relative; background: #e6e7ea; display: flex; }
@@ -69,7 +77,6 @@ td.col-note.no { color: #b9bec7; }
 .right-pane { width: 30%; min-width: 220px; max-width: 75%; display: flex; flex-direction: column;
   border-left: 1px solid #c8cbd1; background: #fff; }
 .page-frame { width: 100%; height: 100%; border: 0; background: #e6e7ea; }
-.note-tools { display: flex; gap: 4px; padding: 4px; background: #e9eaed; border-bottom: 1px solid #d0d3d8; }
 #note-edit { flex: 1; border: 0; border-radius: 0; padding: 8px; resize: none; outline: none;
   font-family: Consolas, monospace; font-size: 13px; line-height: 1.6; }
 
@@ -78,9 +85,6 @@ td.col-note.no { color: #b9bec7; }
   flex-direction: column; position: relative; background: #f5f6f8; border-right: 1px solid #d0d3d8; overflow: hidden; }
 .toc-body { flex: 1; display: flex; min-height: 0; }
 .toc-col { display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
-.toc-col-head { display: flex; align-items: center; gap: 6px; padding: 4px 8px; font-weight: 600;
-  color: #33445c; background: #eceef1; border-bottom: 1px solid #d0d3d8; user-select: none; }
-.toc-col-head button { padding: 0; height: 20px; min-width: 20px; font-size: 14px; line-height: 1; }
 .toc-col > .tree, .toc-col > .list { flex: 1; overflow: auto; padding: 6px 8px; }
 #toc-col-tree { flex: 0 0 auto; width: 52%; min-width: 42px; }   /* 目录列默认占一半，可拖动分隔条调节；最小缩到"目录"两字 */
 .toc-col-bm { flex: 1 1 0; min-width: 0; }                     /* 书签列占据剩余宽度，可被完全压缩到 0 */
@@ -99,10 +103,6 @@ body.col-resizing iframe { pointer-events: none; }
 
 /* ---- PDF ---- */
 .pdf-area { position: absolute; inset: 0; overflow: auto; background: #7f8792; }
-.pdf-bar { position: sticky; top: 0; z-index: 5; display: flex; gap: 8px; align-items: center;
-  justify-content: center; padding: 5px; background: #e9eaed; border-bottom: 1px solid #c8cbd1;
-  box-shadow: 0 1px 4px rgba(0,0,0,.15); }
-.pdf-sep { width: 10px; }
 #pdf-jump { width: 64px; }
 #pdf-page-info { min-width: 74px; text-align: center; font-weight: 600; color: #33445c; }
 /* 对应 Python 版 QGraphicsScene：每页按预计算的 y 绝对定位。

@@ -44,8 +44,6 @@
 <div id="reader-view" class="view">
   <div class="toolbar">
     <button id="btn-back">返回</button>
-    <button id="btn-prev" class="narrow">←</button>
-    <button id="btn-next" class="narrow">→</button>
     <span class="tool-group" id="tool-group">
       <button data-tool="select" class="active">选择</button>
       <button data-tool="highlight">高亮</button>
@@ -71,18 +69,41 @@
   </div>
 
   <div class="fmtbar" id="fmtbar">
-    <label>字体:</label>
-    <select id="font-sel">
-      <option>Microsoft YaHei</option><option>SimSun</option><option>SimHei</option>
-      <option>KaiTi</option><option>FangSong</option><option>Consolas</option><option>Arial</option>
-    </select>
-    <label>字号:</label>
-    <select id="size-sel"><option>12</option><option>14</option><option selected>16</option>
-      <option>18</option><option>20</option><option>22</option><option>24</option><option>28</option><option>32</option></select>
-    <label>行距:</label>
-    <input id="line-in" type="number" min="1" max="3" step="0.1" value="1.5">
-    <span class="flex"></span>
-    <button id="btn-fullscreen">全屏</button>
+    <div class="fmt-left">
+      <span class="fmt-tab">目录</span>
+      <span class="fmt-tab">书签</span>
+      <button id="bm-del" title="删除选中书签">-</button>
+      <button id="bm-add" title="加书签">+</button>
+      <button id="bm-clear" title="清空书签">×</button>
+    </div>
+    <div class="fmt-center">
+      <div class="fmt-epub" id="fmt-epub">
+        <label>字体:</label>
+        <select id="font-sel">
+          <option>Microsoft YaHei</option><option>SimSun</option><option>SimHei</option>
+          <option>KaiTi</option><option>FangSong</option><option>Consolas</option><option>Arial</option>
+        </select>
+        <label>字号:</label>
+        <select id="size-sel"><option>12</option><option>14</option><option selected>16</option>
+          <option>18</option><option>20</option><option>22</option><option>24</option><option>28</option><option>32</option></select>
+        <label>行距:</label>
+        <input id="line-in" type="number" min="1" max="3" step="0.1" value="1.5">
+        <button id="btn-prev" class="narrow" title="上一页">←</button>
+        <button id="btn-next" class="narrow" title="下一页">→</button>
+      </div>
+      <div class="fmt-pdf hidden" id="fmt-pdf">
+        <button id="pdf-prev" title="上一页">上一页</button>
+        <span id="pdf-page-info">0 / 0</span>
+        <button id="pdf-next" title="下一页">下一页</button>
+        <label>跳转:</label><input id="pdf-jump" type="number" min="1" value="1">
+        <button id="pdf-export">导出当前页(含标注)</button>
+      </div>
+    </div>
+    <div class="fmt-right">
+      <button id="btn-preview-note">预览笔记</button>
+      <button id="btn-export-note">导出笔记</button>
+      <button id="btn-delete-note">删除笔记</button>
+    </div>
   </div>
 
   <div class="split" id="split">
@@ -90,16 +111,10 @@
       <aside id="toc-pane" class="toc-pane">
         <div class="toc-body">
           <div class="toc-col" id="toc-col-tree">
-            <div class="toc-col-head">目录</div>
             <div id="toc-tree" class="tree"></div>
           </div>
           <div id="toc-inner-divider" class="divider divider-v"></div>
           <div class="toc-col toc-col-bm" id="toc-col-bm">
-            <div class="toc-col-head">书签
-              <button id="bm-del" title="删除选中书签">-</button>
-              <button id="bm-add" title="加书签">+</button>
-              <button id="bm-clear" title="清空书签">×</button>
-            </div>
             <div id="bm-list" class="list"></div>
           </div>
         </div>
@@ -109,25 +124,12 @@
       <div class="reader-zone">
         <iframe id="page-frame" class="page-frame"></iframe>
         <div id="pdf-area" class="pdf-area hidden" tabindex="-1">
-          <div class="pdf-bar" id="pdf-bar">
-            <button id="pdf-prev" title="上一页">上一页</button>
-            <span id="pdf-page-info">0 / 0</span>
-            <button id="pdf-next" title="下一页">下一页</button>
-            <span class="pdf-sep"></span>
-            <label>跳转:</label><input id="pdf-jump" type="number" min="1" value="1">
-            <button id="pdf-export">导出当前页(含标注)</button>
-          </div>
           <div id="pdf-pages"></div>
         </div>
       </div>
     </div>
     <div id="note-divider" class="divider" data-side="note"></div>
     <div class="right-pane">
-      <div class="note-tools">
-        <button id="btn-preview-note">预览笔记</button>
-        <button id="btn-export-note">导出笔记</button>
-        <button id="btn-delete-note">删除笔记</button>
-      </div>
       <textarea id="note-edit" placeholder="在此输入 Markdown 笔记..."></textarea>
     </div>
   </div>

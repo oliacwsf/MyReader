@@ -323,7 +323,8 @@ async function openBook(path) {
     S.progress = pos | 0;
     $('#note-edit').value = noteText;
     $('#lbl-progress').textContent = `已读 ${S.progress}%`;
-    $('#fmtbar').classList.toggle('hidden', S.kind === 'pdf');
+    $('#fmt-epub').classList.toggle('hidden', S.kind === 'pdf');
+    $('#fmt-pdf').classList.toggle('hidden', S.kind !== 'pdf');
     $('#page-frame').classList.toggle('hidden', S.kind === 'pdf');
     $('#pdf-area').classList.toggle('hidden', S.kind !== 'pdf');
     showView('reader');
@@ -1084,13 +1085,12 @@ function applyZoomToItems() {
 }
 
 /** 把视口换算成场景坐标（对应 view.mapToScene(viewport().rect())）。
- *  pdf-bar 是 sticky 固定条，可见内容区为 [barH, clientHeight]，
- *  其内容坐标 = scrollTop，故场景 top = scrollTop / zoom。 */
+ *  PDF 导航已移至顶部第二行工具栏，pdf-area 内不再有 sticky 条，
+ *  可见内容区即整个滚动区，场景 top = scrollTop / zoom。 */
 function pdfViewportScene() {
   const area = pdfArea(), z = S.pdf.scale || 1;
-  const barH = $('#pdf-bar').offsetHeight;
   const top = area.scrollTop / z;
-  return { top, bottom: top + Math.max(0, area.clientHeight - barH) / z };
+  return { top, bottom: top + area.clientHeight / z };
 }
 
 function pdfPageInViewport(it) {
@@ -1736,12 +1736,12 @@ function gotoPdfPage(n, smooth = true) {
   const it = P.items[n - 1];
   if (!it) return;
   const area = pdfArea(), holder = $('#pdf-pages');
-  const barH = $('#pdf-bar').offsetHeight;
+  // PDF 导航已移到顶部第二行工具栏，pdf-area 内不再有 sticky 条，无需再扣 barH
   if (!smooth && P.renderTask && P.renderingItem && P.renderingItem.num !== n) {
     try { P.renderTask.cancel(); } catch (e) { /* 已结束 */ }
   }
   // 用预计算的场景 y 定位，不依赖 offsetTop 的布局值
-  area.scrollTo({ top: Math.max(0, holder.offsetTop + it.y * P.scale - barH - 6),
+  area.scrollTo({ top: Math.max(0, holder.offsetTop + it.y * P.scale - 6),
                   behavior: smooth ? 'smooth' : 'auto' });
   P.page = n;
   updatePdfLabel();
@@ -1914,7 +1914,6 @@ function bindEvents() {
   $('#btn-delete-note').onclick = async () => {
     $('#note-edit').value = ''; await saveNote();
   };
-  $('#btn-fullscreen').onclick = () => invoke('toggle_fullscreen').catch(() => {});
 
   $('#toc-reopen').onclick = toggleTocPane;
   $('#bm-add').onclick = addBookmark;
@@ -1971,7 +1970,7 @@ function bindEvents() {
     const key = (e.shiftKey ? 'Shift+' : '') + (e.ctrlKey ? 'Ctrl+' : '') + (e.key === ' ' ? 'Space' : e.key);
     if (key === S.cfg.sc_page_down && S.path) { e.preventDefault(); scrollPage(1); }
     else if (key === S.cfg.sc_page_up && S.path) { e.preventDefault(); scrollPage(-1); }
-    else if (key === S.cfg.sc_fullscreen) { e.preventDefault(); $('#btn-fullscreen').click(); }
+    else if (key === S.cfg.sc_fullscreen) { e.preventDefault(); invoke('toggle_fullscreen').catch(() => {}); }
     else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && S.path) { e.preventDefault(); undoAnnotation(); }
     else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); saveNote(); saveProgress(); }
   });
