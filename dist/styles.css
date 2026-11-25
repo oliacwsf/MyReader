@@ -43,6 +43,11 @@ body.col-resizing, body.col-resizing * { cursor: col-resize !important; user-sel
 td.col-note { text-align: center; font-size: 15px; line-height: 1.15; }
 td.col-note.yes { color: #0a7d32; font-weight: 700; }
 td.col-note.no { color: #b9bec7; }
+/* 文件名栏 / 备注栏可聚焦，双击或回车触发打开 / 编辑 */
+#file-table tbody td.cell-name { cursor: pointer; }
+#file-table tbody td.cell-note { cursor: text; }
+#file-table tbody td.cell-name:focus,
+#file-table tbody td.cell-note:focus { outline: 2px solid #1E88E5; outline-offset: -2px; background: #eaf3fd; }
 
 /* ---- 阅读区 ---- */
 .toolbar, .fmtbar { display: flex; align-items: center; gap: 3px; padding: 3px 5px;
@@ -140,8 +145,12 @@ dialog h4 { margin: 0 0 6px; font-size: 13px; color: #555; }
 .list .bm-item { padding: 4px 6px; cursor: pointer; border-bottom: 1px solid #eee; }
 .list .bm-item.selected { background: #cfe4fa; }
 .list .bm-item:hover { background: #eef5fd; }
-.form { display: grid; grid-template-columns: 110px 1fr auto; gap: 6px; align-items: center; }
-.form input { width: 100%; }
+.form { display: grid; grid-template-columns: 120px 1fr; gap: 8px 10px; align-items: center; }
+.form > label { color: #33445c; }
+.form-ctrl { display: flex; gap: 6px; align-items: center; min-width: 0; }
+.form-ctrl input { flex: 1; min-width: 0; }
+.form-ctrl select { flex: 1; min-width: 0; }
+.form-ctrl button { white-space: nowrap; }
 .preview { max-height: 60vh; overflow: auto; padding: 10px; background: #fff; line-height: 1.8; }
 .preview blockquote { border-left: 3px solid #1E88E5; margin: 6px 0; padding-left: 10px; color: #555; }
 .preview code { background: #f0f1f3; padding: 1px 4px; border-radius: 3px; }

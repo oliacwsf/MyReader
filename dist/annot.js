@@ -520,7 +520,10 @@
   }
   function onDown(ev) {
     if (ev.button !== 0) return; ev.preventDefault(); ev.stopPropagation();
-    st.drag = { start: pt(ev), cur: pt(ev) }; rmPreview();
+    // 清掉上一次可能残留的拖动/预览状态，避免首次绘制被脏状态干扰
+    if (st.drag) st.drag = null;
+    rmPreview();
+    st.drag = { start: pt(ev), cur: pt(ev) };
     st.preview = mkPreview(st.tool, st.drag.start, st.drag.cur);
     document.addEventListener('mousemove', onMove, true);
     document.addEventListener('mouseup', onUp, true);
@@ -531,7 +534,7 @@
     document.removeEventListener('mouseup', onUp, true);
     if (!st.drag) return;
     var a = st.drag.start, b = pt(ev); st.drag = null; rmPreview();
-    if (Math.hypot(b.x - a.x, b.y - a.y) < 4) return;
+    if (Math.hypot(b.x - a.x, b.y - a.y) < 2) return;
     if (st.tool === 'screenshot') {
       // 自由矩形截图：把拖出的这块区域栅格化成 PNG，交回主界面保存/复制
       var L = Math.min(a.x, b.x), T = Math.min(a.y, b.y);

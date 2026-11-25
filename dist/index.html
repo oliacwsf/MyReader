@@ -108,7 +108,7 @@
       <button id="toc-reopen" class="toc-reopen" title="收起目录/书签栏">◀</button>
       <div class="reader-zone">
         <iframe id="page-frame" class="page-frame"></iframe>
-        <div id="pdf-area" class="pdf-area hidden">
+        <div id="pdf-area" class="pdf-area hidden" tabindex="-1">
           <div class="pdf-bar" id="pdf-bar">
             <button id="pdf-prev" title="上一页">上一页</button>
             <span id="pdf-page-info">0 / 0</span>
@@ -137,17 +137,29 @@
 <dialog id="dlg-settings">
   <h3>设置</h3>
   <div class="form">
-    <label>数据目录</label><input id="cfg-db" type="text"><button data-browse="cfg-db">浏览</button>
-    <label>笔记目录</label><input id="cfg-note" type="text"><button data-browse="cfg-note">浏览</button>
-    <label>Markdown 编辑器</label><input id="cfg-editor" type="text"><button data-browse="cfg-editor">浏览</button>
-    <label>下翻快捷键</label><input id="cfg-pd" type="text">
-    <label>上翻快捷键</label><input id="cfg-pu" type="text">
-    <label>全屏快捷键</label><input id="cfg-fs" type="text">
-    <label>目录快捷键</label><input id="cfg-toc" type="text">
-    <label>PDF 渲染模式</label><select id="cfg-pdf-mode">
-      <option value="high">高清模式 (清晰，较慢)</option>
-      <option value="fast">极速模式 (略糊，秒开)</option>
-    </select>
+    <label for="cfg-db">数据目录</label>
+    <div class="form-ctrl"><input id="cfg-db" type="text"><button data-browse="cfg-db">浏览</button></div>
+    <label for="cfg-note">笔记目录</label>
+    <div class="form-ctrl"><input id="cfg-note" type="text"><button data-browse="cfg-note">浏览</button></div>
+    <label for="cfg-editor">Markdown 编辑器</label>
+    <div class="form-ctrl"><input id="cfg-editor" type="text"><button data-browse="cfg-editor">浏览</button></div>
+    <label for="cfg-pd">下翻快捷键</label>
+    <div class="form-ctrl"><select id="cfg-pd">
+      <option value="ArrowRight">→（右方向键）</option>
+      <option value="ArrowDown">↓（下方向键）</option>
+    </select></div>
+    <label for="cfg-pu">上翻快捷键</label>
+    <div class="form-ctrl"><select id="cfg-pu">
+      <option value="ArrowLeft">←（左方向键）</option>
+      <option value="ArrowUp">↑（上方向键）</option>
+    </select></div>
+    <label for="cfg-fs">全屏快捷键</label>
+    <div class="form-ctrl"><input id="cfg-fs" type="text"></div>
+    <label for="cfg-pdf-mode">PDF 渲染模式</label>
+    <div class="form-ctrl"><select id="cfg-pdf-mode">
+      <option value="high">高清模式（清晰，较慢）</option>
+      <option value="fast">极速模式（略糊，秒开）</option>
+    </select></div>
   </div>
   <div class="dlg-foot"><button id="cfg-save">保存</button><button id="cfg-cancel">取消</button></div>
 </dialog>

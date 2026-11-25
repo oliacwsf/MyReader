@@ -118,10 +118,26 @@ function recordRecent(path) {
   });
   saveRecent(list.slice(0, 10));
 }
+/** 局部更新「最近阅读」缓存里某条记录的字段（笔记状态/备注变化后即时同步） */
+function patchRecent(path, patch) {
+  if (!path) return;
+  const list = loadRecent();
+  let changed = false;
+  for (const r of list) {
+    if (r.path === path) { Object.assign(r, patch); changed = true; }
+  }
+  if (changed) saveRecent(list);
+}
 function renderTable() {
   const key = S.sortKey, asc = S.sortAsc;
   let base = S.viewMode === 'recent' ? loadRecent() : S.files;
   if (S.viewMode === 'recent') {
+    // 最近阅读的 has_note / note 以当前文件列表的最新数据为准，删笔记/清备注后能立即反映
+    base = base.map((r) => {
+      const live = S.files.find((f) => f.path === r.path);
+      if (live) return { ...r, has_note: live.has_note, note: live.note || '' };
+      return r;
+    });
     // 最近阅读只有 10 条，搜索/筛选在前端就地过滤即可
     const q = ($('#search').value || '').toLowerCase();
     const flt = ($('#filter').value || '').toLowerCase();
@@ -150,8 +166,23 @@ function renderTable() {
     tr.innerHTML = `<td title="${esc(f.name)}">${esc(f.name)}</td><td>${esc(f.ext)}</td><td>${human(f.size)}</td>
       <td class="col-note ${f.has_note ? 'yes' : 'no'}">${f.has_note ? '√' : '□'}</td>
       <td title="${esc(f.note)}">${esc(f.note)}</td>`;
+    const tdName = tr.children[0];
+    const tdNote = tr.children[4];
+    // 文件名栏：双击 / 回车打开文件（单元格可聚焦）
+    tdName.tabIndex = 0;
+    tdName.classList.add('cell-name');
+    tdName.addEventListener('dblclick', () => openBook(f.path));
+    tdName.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); openBook(f.path); }
+    });
+    // 备注栏：双击 / 回车打开编辑备注窗口
+    tdNote.tabIndex = 0;
+    tdNote.classList.add('cell-note');
+    tdNote.addEventListener('dblclick', () => editNoteMeta(f));
+    tdNote.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); editNoteMeta(f); }
+    });
     tr.addEventListener('click', () => selectRow(tr, f));
-    tr.addEventListener('dblclick', () => openBook(f.path));
     tr.addEventListener('contextmenu', (e) => { e.preventDefault(); selectRow(tr, f); fileContextMenu(e, f); });
     body.appendChild(tr);
   }
@@ -233,7 +264,7 @@ function fileContextMenu(e, f) {
   const items = [
     ['预览笔记', async () => { await previewNoteText(await invoke('load_note', { path: f.path })); }],
     ['导出笔记', () => exportNote(f.path)],
-    ['删除笔记', async () => { await invoke('delete_note', { path: f.path }); await loadFiles(); }],
+    ['删除笔记', async () => { await invoke('delete_note', { path: f.path }); patchRecent(f.path, { has_note: false }); await loadFiles(); }],
     ['打开笔记', () => openNoteExternal(f.path)],
   ];
   for (const [label, fn] of items) {
@@ -248,6 +279,22 @@ function fileContextMenu(e, f) {
   document.body.appendChild(menu);
   const close = () => { menu.remove(); document.removeEventListener('click', close); };
   setTimeout(() => document.addEventListener('click', close), 0);
+}
+/** 编辑某文件的备注（工具栏按钮与备注栏双击/回车共用） */
+async function editNoteMeta(f) {
+  if (!f) return;
+  const v = await promptBox('编辑备注', f.note || '');
+  if (v === null) return;
+  await invoke('set_note_meta', { path: f.path, text: v });
+  patchRecent(f.path, { note: v });
+  await loadFiles();
+}
+/** 清空某文件的备注 */
+async function clearNoteMeta(f) {
+  if (!f) return;
+  await invoke('clear_note_meta', { path: f.path });
+  patchRecent(f.path, { note: '' });
+  await loadFiles();
 }
 
 // ---------------- 打开 / 关闭书籍 ----------------
@@ -517,6 +564,7 @@ function setTool(tool) {
       if (w && commitPdfSelection(w)) return;
     }
     applyPdfTool();
+    try { $('#pdf-area').focus(); } catch (e) { /* 忽略 */ }
     return;
   }
   if (tool === 'highlight' || tool === 'underline') {
@@ -526,6 +574,8 @@ function setTool(tool) {
     return;
   }
   applyToolToFrame();
+  // 让阅读区立刻获得焦点，避免第一次落笔的 mousedown 被 WebView 拿去“激活窗口”而吞掉
+  try { $('#page-frame').contentWindow.focus(); } catch (e) { /* 忽略 */ }
 }
 function undoAnnotation() {
   if (S.kind === 'pdf') { S.pdf.anns.pop(); renderPdfAnnotations(); return; }
@@ -585,6 +635,10 @@ async function pdfSetScale(z) {
 async function saveNote() {
   if (!S.path) return;
   await invoke('save_note', { path: S.path, text: $('#note-edit').value }).catch(() => {});
+  // 写笔记后同步「最近阅读」的笔记状态标记，回到列表即可看到 √
+  const f = S.files.find((x) => x.path === S.path);
+  if (f) f.has_note = true;
+  patchRecent(S.path, { has_note: true });
 }
 function appendNote(text) {
   $('#note-edit').value += text;
@@ -1524,7 +1578,9 @@ function bindPdfDrawing(holder) {
     }
   });
 
-  holder.addEventListener('mousemove', (e) => {
+  // mousemove / mouseup 挂在 document 捕获阶段：即使拖动途中短暂滑出页面容器，
+  // 也能正常收尾，避免「第一次画线」因鼠标移出 holder 边界而丢失。
+  document.addEventListener('mousemove', (e) => {
     const d = pdfDraw;
     if (!d.wrap || !d.start || !d.preview) return;
     const b = pdfRel(d.wrap, e), W = d.wrap.clientWidth, H = d.wrap.clientHeight;
@@ -1545,9 +1601,9 @@ function bindPdfDrawing(holder) {
           .map((q) => q[0].toFixed(1) + ',' + q[1].toFixed(1)).join(' '));
       }
     }
-  });
+  }, true);
 
-  holder.addEventListener('mouseup', (e) => {
+  document.addEventListener('mouseup', (e) => {
     const d = pdfDraw;
     const wrap = d.wrap;
     if (!wrap) return;
@@ -1559,7 +1615,9 @@ function bindPdfDrawing(holder) {
     if (!d.start) return;
     const a = d.start, b = pdfRel(wrap, e);
     d.start = null; pdfClearDrawPreview(); d.wrap = null;
-    if (Math.abs(b.x - a.x) < 0.002 || Math.abs(b.y - a.y) < 0.002) return;
+    // 只有横、纵两个方向都几乎没动才算「无效点击」。旧代码用 ||（或），
+    // 会把水平直线（y 不动）和垂直直线（x 不动）误判为无效，第一次画线常失败。
+    if (Math.abs(b.x - a.x) < 0.002 && Math.abs(b.y - a.y) < 0.002) return;
     if (S.tool === 'screenshot') {          // 自由矩形截图：不产生标注，直接截取位图
       doPdfScreenshot(wrap, a, b);
       setTool('select');
@@ -1576,10 +1634,11 @@ function bindPdfDrawing(holder) {
     }
     renderPdfAnnotations(); persistPdfAnns();
     setTool('select');
-  });
+  }, true);
 
   holder.addEventListener('mouseleave', () => {
-    pdfDraw.start = null; pdfClearDrawPreview(); pdfDraw.wrap = null;
+    // 绘制中（按住拖动）移出页面容器时不打断；仅清理无绘制的残留预览。
+    if (!pdfDraw.start) { pdfClearDrawPreview(); pdfDraw.wrap = null; }
   });
 }
 
@@ -1774,9 +1833,10 @@ async function exportPdfPagePng() {
 // ---------------- 设置 ----------------
 function fillSettings() {
   $('#cfg-db').value = S.cfg.db_dir; $('#cfg-note').value = S.cfg.note_dir;
-  $('#cfg-editor').value = S.cfg.md_editor; $('#cfg-pd').value = S.cfg.sc_page_down;
-  $('#cfg-pu').value = S.cfg.sc_page_up; $('#cfg-fs').value = S.cfg.sc_fullscreen;
-  $('#cfg-toc').value = S.cfg.sc_toc;
+  $('#cfg-editor').value = S.cfg.md_editor;
+  $('#cfg-pd').value = S.cfg.sc_page_down || 'ArrowRight';
+  $('#cfg-pu').value = S.cfg.sc_page_up || 'ArrowLeft';
+  $('#cfg-fs').value = S.cfg.sc_fullscreen;
   $('#cfg-pdf-mode').value = S.cfg.pdf_render_mode || 'high';
 }
 async function openSettings() {
@@ -1806,15 +1866,13 @@ function bindEvents() {
     if (S.sortKey === k) S.sortAsc = !S.sortAsc; else { S.sortKey = k; S.sortAsc = true; }
     renderTable();
   });
-  $('#btn-edit-note').onclick = async () => {
+  $('#btn-edit-note').onclick = () => {
     if (!S.selected) return toast('请先选中一个文件');
-    const v = await promptBox('编辑备注', S.selected.note || '');
-    if (v === null) return;
-    await invoke('set_note_meta', { path: S.selected.path, text: v }); await loadFiles();
+    editNoteMeta(S.selected);
   };
-  $('#btn-clear-note').onclick = async () => {
+  $('#btn-clear-note').onclick = () => {
     if (!S.selected) return toast('请先选中一个文件');
-    await invoke('clear_note_meta', { path: S.selected.path }); await loadFiles();
+    clearNoteMeta(S.selected);
   };
   $('#btn-open-note').onclick = () => S.selected && openNoteExternal(S.selected.path);
   $('#btn-settings').onclick = openSettings;
@@ -1879,7 +1937,6 @@ function bindEvents() {
     S.cfg.db_dir = $('#cfg-db').value; S.cfg.note_dir = $('#cfg-note').value;
     S.cfg.md_editor = $('#cfg-editor').value; S.cfg.sc_page_down = $('#cfg-pd').value;
     S.cfg.sc_page_up = $('#cfg-pu').value; S.cfg.sc_fullscreen = $('#cfg-fs').value;
-    S.cfg.sc_toc = $('#cfg-toc').value;
     S.cfg.pdf_render_mode = $('#cfg-pdf-mode').value;
     S.pdf.renderMode = S.cfg.pdf_render_mode === 'fast' ? 'fast' : 'high';
     if (S.kind === 'pdf' && S.pdf.doc) invalidateRendered();
@@ -1907,11 +1964,14 @@ function bindEvents() {
   });
 
   document.addEventListener('keydown', (e) => {
+    // 输入框 / 下拉框 / 可编辑区内的方向键等按键不触发全局翻页快捷键，
+    // 否则笔记栏里没法用方向键移动光标、也没法正常输入。
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
     const key = (e.shiftKey ? 'Shift+' : '') + (e.ctrlKey ? 'Ctrl+' : '') + (e.key === ' ' ? 'Space' : e.key);
     if (key === S.cfg.sc_page_down && S.path) { e.preventDefault(); scrollPage(1); }
     else if (key === S.cfg.sc_page_up && S.path) { e.preventDefault(); scrollPage(-1); }
     else if (key === S.cfg.sc_fullscreen) { e.preventDefault(); $('#btn-fullscreen').click(); }
-    else if (key === S.cfg.sc_toc && S.path) { e.preventDefault(); toggleTocPane(); }
     else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && S.path) { e.preventDefault(); undoAnnotation(); }
     else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); saveNote(); saveProgress(); }
   });
@@ -1919,6 +1979,17 @@ function bindEvents() {
   let noteTimer = null;
   $('#note-edit').addEventListener('input', () => {
     clearTimeout(noteTimer); noteTimer = setTimeout(saveNote, 800);
+  });
+  // 鼠标移到笔记栏：自动聚焦，并把光标定位到已有文字的下一行句首，可直接打字。
+  // 只有笔记栏尚未聚焦时才定位（用户已在编辑时不强拉光标，避免打断中途修改）。
+  $('#note-edit').addEventListener('mouseenter', () => {
+    const ta = $('#note-edit');
+    if (document.activeElement !== ta) {
+      if (ta.value && !ta.value.endsWith('\n')) ta.value += '\n';
+      ta.focus();
+      const len = ta.value.length;
+      try { ta.setSelectionRange(len, len); } catch (e) { /* 忽略 */ }
+    }
   });
   window.addEventListener('beforeunload', () => { flushAnnotations(); saveNote(); saveProgress(); });
 }
