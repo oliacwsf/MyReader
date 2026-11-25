@@ -25,7 +25,6 @@ pub struct Config {
     pub sc_page_down: String,
     pub sc_page_up: String,
     pub sc_fullscreen: String,
-    pub sc_toc: String,
     /// PDF 渲染模式：high（高清，低清预览 700px→高清 3x）/ fast（极速，500px→2x）
     /// 对应 Python 版 SettingsDialog 的 pdf_mode_combo / PdfViewerWidget.render_mode
     pub pdf_render_mode: String,
@@ -42,10 +41,9 @@ impl Default for Config {
             font_size: 16,
             line_spacing: 1.5,
             zoom: 1.0,
-            sc_page_down: "Space".into(),
-            sc_page_up: "Shift+Space".into(),
+            sc_page_down: "ArrowRight".into(),
+            sc_page_up: "ArrowLeft".into(),
             sc_fullscreen: "F11".into(),
-            sc_toc: "Shift+S".into(),
             pdf_render_mode: "high".into(),
         }
     }
