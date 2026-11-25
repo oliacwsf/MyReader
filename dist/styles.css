@@ -67,7 +67,6 @@ td.col-note.no { color: #b9bec7; }
 /* 第二行工具栏：左（目录/书签）·中（格式/导航）·右（笔记工具）三区 */
 .fmt-left, .fmt-center, .fmt-right { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
 .fmt-center { flex: 1 1 auto; justify-content: center; min-width: 0; }
-.fmt-tab { font-weight: 600; color: #33445c; white-space: nowrap; padding: 0 2px; line-height: 24px; }
 .fmt-epub, .fmt-pdf { display: flex; align-items: center; gap: 4px; }
 .fmtbar select, .fmtbar input { height: 24px; }
 
@@ -88,6 +87,8 @@ td.col-note.no { color: #b9bec7; }
 .toc-col > .tree, .toc-col > .list { flex: 1; overflow: auto; padding: 6px 8px; }
 #toc-col-tree { flex: 0 0 auto; width: 52%; min-width: 42px; }   /* 目录列默认占一半，可拖动分隔条调节；最小缩到"目录"两字 */
 .toc-col-bm { flex: 1 1 0; min-width: 0; }                     /* 书签列占据剩余宽度，可被完全压缩到 0 */
+/* 某一列被收起时，另一列占满整个侧栏 */
+.toc-col.full { flex: 1 1 100% !important; width: auto !important; }
 .divider-v { flex: 0 0 5px; width: 5px; cursor: col-resize; background: #d8dadd; }
 .divider-v:hover, .divider-v.active { background: #1E88E5; }
 .divider { flex: 0 0 5px; width: 5px; cursor: col-resize; background: #d8dadd; }
@@ -138,11 +139,13 @@ dialog h4 { margin: 0 0 6px; font-size: 13px; color: #555; }
 .dlg-split > div { flex: 1; min-width: 200px; border: 1px solid #d0d3d8; padding: 8px; overflow: auto; }
 .dlg-actions { display: flex; gap: 6px; margin-top: 8px; }
 .dlg-foot { display: flex; justify-content: flex-end; gap: 6px; margin-top: 12px; }
-.tree ul { list-style: none; margin: 0; padding-left: 14px; }
+.tree ul { list-style: none; margin: 0; padding-left: 0; }
 .tree li { padding: 2px 0; }
-.tree .toc-item { cursor: pointer; color: #1E88E5; }
+.tree .toc-item { cursor: pointer; color: #1E88E5; display: block; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; }
 .tree .toc-item:hover { text-decoration: underline; }
-.list .bm-item { padding: 4px 6px; cursor: pointer; border-bottom: 1px solid #eee; }
+.list .bm-item { padding: 4px 6px; cursor: pointer; border-bottom: 1px solid #eee;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .list .bm-item.selected { background: #cfe4fa; }
 .list .bm-item:hover { background: #eef5fd; }
 .form { display: grid; grid-template-columns: 120px 1fr; gap: 8px 10px; align-items: center; }

@@ -717,12 +717,51 @@ function renderTocSidebar() {
   buildTocTree(S.toc, $('#toc-tree'));
   renderBookmarks();
 }
+// 目录列 / 书签列的显示状态（「目录」「书签」按钮各自独立开关）
+let tocTreeVisible = true;
+let tocBmVisible = true;
+
+/** 根据两列显示状态，统一刷新侧栏、分隔条、按钮激活态与整体收起/展开 */
+function updateSidebar() {
+  const tree = $('#toc-col-tree');
+  const bm = $('#toc-col-bm');
+  const innerDiv = $('#toc-inner-divider');
+  const pane = $('#toc-pane');
+  const divider = $('#toc-divider');
+  const reopen = $('#toc-reopen');
+
+  tree.classList.toggle('hidden', !tocTreeVisible);
+  bm.classList.toggle('hidden', !tocBmVisible);
+  // 内部分隔条只在两列都显示时才出现
+  innerDiv.classList.toggle('hidden', !(tocTreeVisible && tocBmVisible));
+
+  // 某一列收起时，另一列占满侧栏
+  tree.classList.toggle('full', tocTreeVisible && !tocBmVisible);
+  bm.classList.toggle('full', tocBmVisible && !tocTreeVisible);
+
+  $('#btn-toc-tab').classList.toggle('active', tocTreeVisible);
+  $('#btn-bm-tab').classList.toggle('active', tocBmVisible);
+
+  const anyVisible = tocTreeVisible || tocBmVisible;
+  pane.classList.toggle('hidden', !anyVisible);
+  divider.classList.toggle('hidden', !anyVisible);
+  reopen.textContent = anyVisible ? '◀' : '▶';
+  reopen.title = anyVisible ? '收起目录/书签栏' : '展开目录/书签栏';
+}
+
+/** 「目录」「书签」按钮：各自展开/收起对应的那一列 */
+function toggleTocTab(which) {
+  if (which === 'tree') tocTreeVisible = !tocTreeVisible;
+  else tocBmVisible = !tocBmVisible;
+  updateSidebar();
+}
+
+/** 左边缘竖条按钮：整体收起/展开（收起后再展开时恢复两列） */
 function toggleTocPane() {
-  const hidden = $('#toc-pane').classList.toggle('hidden');
-  $('#toc-divider').classList.toggle('hidden', hidden);
-  const btn = $('#toc-reopen');
-  btn.textContent = hidden ? '▶' : '◀';
-  btn.title = hidden ? '展开目录/书签栏' : '收起目录/书签栏';
+  const anyVisible = tocTreeVisible || tocBmVisible;
+  tocTreeVisible = !anyVisible;
+  tocBmVisible = !anyVisible;
+  updateSidebar();
 }
 
 // ---- 可拖动分隔条：笔记栏 / 目录栏 / 目录·书签两栏宽度自由调整并记忆 ----
@@ -1887,8 +1926,8 @@ function bindEvents() {
   $('#pdf-area').addEventListener('scroll', pdfOnScroll, { passive: true });
   bindPdfDrawing($('#pdf-pages'));           // PDF 画图/标注交互：容器级委托，只绑一次
   $('#btn-back').onclick = back;
-  $('#btn-prev').onclick = () => S.kind === 'pdf' ? pdfStep(-1) : pageStep(-1);
-  $('#btn-next').onclick = () => S.kind === 'pdf' ? pdfStep(1) : pageStep(1);
+  $('#btn-prev').onclick = () => scrollPage(-1);
+  $('#btn-next').onclick = () => scrollPage(1);
   $$('#tool-group button').forEach((b) => b.onclick = () => setTool(b.dataset.tool));
   $('#width-sel').onchange = (e) => { S.width = parseInt(e.target.value, 10); applyToolToFrame(); };
   $('#btn-undo').onclick = undoAnnotation;
@@ -1916,6 +1955,8 @@ function bindEvents() {
   };
 
   $('#toc-reopen').onclick = toggleTocPane;
+  $('#btn-toc-tab').onclick = () => toggleTocTab('tree');
+  $('#btn-bm-tab').onclick = () => toggleTocTab('bm');
   $('#bm-add').onclick = addBookmark;
   $('#bm-del').onclick = async () => {
     if (bmSelected < 0) return;
