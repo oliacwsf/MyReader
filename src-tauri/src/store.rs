@@ -8,6 +8,7 @@ use std::sync::Mutex;
 
 const SCHEMA: &[(&str, &[(&str, &str)])] = &[
     ("notes", &[("file_path", "TEXT PRIMARY KEY"), ("note_text", "TEXT")]),
+    ("recent", &[("file_path", "TEXT PRIMARY KEY"), ("opened_at", "INTEGER")]),
     ("progress", &[("file_path", "TEXT PRIMARY KEY"), ("scroll_pos", "INTEGER"), ("file_type", "TEXT"), ("page", "INTEGER")]),
     ("bookmarks", &[("file_path", "TEXT"), ("name", "TEXT"), ("pos", "INTEGER")]),
     ("pdf_annotations", &[("file_path", "TEXT PRIMARY KEY"), ("ann_data", "TEXT")]),
@@ -79,6 +80,36 @@ impl Db {
     pub fn clear_note_meta(&self, path: &str) -> Result<(), String> {
         let c = self.conn.lock().map_err(|e| e.to_string())?;
         c.execute("DELETE FROM notes WHERE file_path = ?", params![path]).map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    // ---- 最近阅读（随 SQLite 数据库便携，最多 10 条） ----
+    pub fn get_recent(&self) -> Vec<Value> {
+        let mut out = Vec::new();
+        if let Ok(c) = self.conn.lock() {
+            if let Ok(mut s) = c.prepare("SELECT file_path, opened_at FROM recent ORDER BY opened_at DESC LIMIT 10") {
+                if let Ok(rows) = s.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?))) {
+                    for r in rows.flatten() {
+                        out.push(serde_json::json!({"path": r.0, "ts": r.1}));
+                    }
+                }
+            }
+        }
+        out
+    }
+
+    pub fn record_recent(&self, path: &str) -> Result<(), String> {
+        let c = self.conn.lock().map_err(|e| e.to_string())?;
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as i64)
+            .unwrap_or(0);
+        c.execute("INSERT OR REPLACE INTO recent (file_path, opened_at) VALUES (?, ?)", params![path, now])
+            .map_err(|e| e.to_string())?;
+        // 只保留最近 10 条
+        c.execute(
+            "DELETE FROM recent WHERE file_path NOT IN (SELECT file_path FROM recent ORDER BY opened_at DESC LIMIT 10)",
+            []).map_err(|e| e.to_string())?;
         Ok(())
     }
 

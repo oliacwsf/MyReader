@@ -11,6 +11,17 @@ use store::Db;
 
 const SUPPORTED: &[&str] = &[".pdf", ".epub", ".mobi", ".azw3", ".txt", ".html", ".htm", ".fb2", ".cbz", ".xps", ".svg"];
 
+/// FNV-1a 64 位哈希：把文件的「完整路径」稳定映射成 16 位十六进制文件名，
+/// 用于笔记文件的命名，避免同名文件共享同一笔记、也避免超长/特殊字符路径问题。
+fn fnv1a64(s: &str) -> u64 {
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for b in s.as_bytes() {
+        h ^= *b as u64;
+        h = h.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    h
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
@@ -83,10 +94,26 @@ impl AppState {
         Ok(AppState { base, config_path, db, config: Mutex::new(config), books: Mutex::new(HashMap::new()) })
     }
 
+    /// 笔记文件按「完整路径」哈希命名，不同目录下的同名文件各自独立，互不串扰。
     fn note_path(&self, file: &str) -> PathBuf {
+        let cfg = self.config.lock().unwrap();
+        PathBuf::from(&cfg.note_dir).join(format!("{:016x}.notes.md", fnv1a64(file)))
+    }
+
+    /// 旧版笔记文件按「文件名」命名（同名文件会串扰），仅用于读取时的兼容回退。
+    fn legacy_note_path(&self, file: &str) -> PathBuf {
         let cfg = self.config.lock().unwrap();
         let name = Path::new(file).file_name().and_then(|s| s.to_str()).unwrap_or("book");
         PathBuf::from(&cfg.note_dir).join(format!("{}.notes.md", name))
+    }
+
+    /// 读取笔记内容：优先新命名（哈希隔离），内容为空时回退旧命名，保证旧笔记不丢失。
+    fn note_text(&self, file: &str) -> String {
+        let text = std::fs::read_to_string(self.note_path(file)).unwrap_or_default();
+        if !text.trim().is_empty() {
+            return text;
+        }
+        std::fs::read_to_string(self.legacy_note_path(file)).unwrap_or_default()
     }
 }
 
@@ -131,7 +158,8 @@ fn list_files(dir: String, search: String, filter: String, state: tauri::State<'
         let size = e.metadata().map(|m| m.len()).unwrap_or(0);
         let full = p.to_string_lossy().into_owned();
         let note = notes.get(&full).cloned().unwrap_or_default();
-        let has_note = state.note_path(&full).exists();
+        // 只有笔记文件存在「且内容非空白」才算有笔记，空文件不再误判为有笔记
+        let has_note = !state.note_text(&full).trim().is_empty();
         out.push(FileEntry { name, ext, size, note, has_note, path: full });
     }
     out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
@@ -230,18 +258,35 @@ fn clear_book(path: String, state: tauri::State<'_, AppState>) {
 
 // ---------------- 笔记 / 备注 / 进度 / 书签 / 标注 ----------------
 
+// ---------------- 最近阅读（存 SQLite，随软件目录便携） ----------------
+
+#[tauri::command]
+fn get_recent(state: tauri::State<'_, AppState>) -> Vec<Value> {
+    state.db.get_recent()
+}
+
+#[tauri::command]
+fn record_recent(path: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    state.db.record_recent(&path)
+}
+
 #[tauri::command]
 fn load_note(path: String, state: tauri::State<'_, AppState>) -> String {
-    std::fs::read_to_string(state.note_path(&path)).unwrap_or_default()
+    state.note_text(&path)
 }
 
 #[tauri::command]
 fn save_note(path: String, text: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
     let p = state.note_path(&path);
+    let legacy = state.legacy_note_path(&path);
     if text.trim().is_empty() {
+        // 清空笔记：删除新命名文件，同时清理旧版遗留的同名文件，保证「清空」彻底生效
         if p.exists() { std::fs::remove_file(&p).map_err(|e| e.to_string())?; }
+        if legacy.exists() { std::fs::remove_file(&legacy).map_err(|e| e.to_string())?; }
     } else {
         std::fs::write(&p, text).map_err(|e| e.to_string())?;
+        // 已迁移到新命名，删除旧版文件避免残留
+        if legacy.exists() { let _ = std::fs::remove_file(&legacy); }
     }
     Ok(())
 }
@@ -249,13 +294,15 @@ fn save_note(path: String, text: String, state: tauri::State<'_, AppState>) -> R
 #[tauri::command]
 fn delete_note(path: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
     let p = state.note_path(&path);
+    let legacy = state.legacy_note_path(&path);
     if p.exists() { std::fs::remove_file(p).map_err(|e| e.to_string())?; }
+    if legacy.exists() { std::fs::remove_file(legacy).map_err(|e| e.to_string())?; }
     Ok(())
 }
 
 #[tauri::command]
 fn export_note(path: String, dest: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let text = std::fs::read_to_string(state.note_path(&path)).unwrap_or_default();
+    let text = state.note_text(&path);
     std::fs::write(&dest, text).map_err(|e| e.to_string())
 }
 
@@ -396,6 +443,7 @@ pub fn run() {
             open_book, get_page, read_file_base64, read_file_bytes,
             read_file_range, file_size, write_file_base64, clear_book,
             load_note, save_note, delete_note, export_note,
+            get_recent, record_recent,
             set_note_meta, clear_note_meta,
             get_progress, set_progress,
             get_bookmarks, set_bookmarks,
